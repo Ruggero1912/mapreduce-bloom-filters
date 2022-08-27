@@ -2,6 +2,8 @@ package it.unipi.moviesBloomFilters;
 import org.apache.hadoop.fs.FileSystem;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
+import java.util.StringTokenizer;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -31,7 +33,16 @@ public class BloomFilterUtility {
         return (int) ((size / n) * Math.log(2));
     }
 
+    public static MovieRow parseRow(String value) {
+        StringTokenizer itr = new StringTokenizer(value.toString(), "\t");
+        if(itr.countTokens() != 3)
+            return null;
 
+        String movieID = itr.nextToken().toString();
+        int roundedRating = Math.round(Float.parseFloat( itr.nextToken().toString() ) );
+        if (roundedRating == 0)
+            return null;
 
-
+        return new MovieRow(movieID, roundedRating);
+    }
 }

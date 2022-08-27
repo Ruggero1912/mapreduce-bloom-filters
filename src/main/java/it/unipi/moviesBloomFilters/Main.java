@@ -24,8 +24,6 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-
-
         Configuration conf1 = new Configuration();
         String[] otherArgs = new GenericOptionsParser(conf1, args).getRemainingArgs();
         if (otherArgs.length < 2) {
@@ -39,10 +37,13 @@ public class Main {
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
+        startTime= System.currentTimeMillis();
+        Job2(conf1, otherArgs, args);
+        stopTime = System.currentTimeMillis();
+        System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+
 
         System.exit(0);
-
-
     }
 
 
@@ -86,7 +87,9 @@ public class Main {
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(BloomFilter.class);
 
-        FileOutputFormat.setOutputPath(job2, new Path(args[1]));
+        System.out.println("DENTRO JOB2");
+
+        FileOutputFormat.setOutputPath(job2, new Path(args[1] + "_2"));
         Boolean countSuccess = job2.waitForCompletion(true);
         if(!countSuccess) {
             System.exit(0);
