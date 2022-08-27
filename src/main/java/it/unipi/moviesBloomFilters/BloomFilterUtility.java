@@ -11,7 +11,6 @@ public class BloomFilterUtility {
     public static double getP(int n){
         double p = 0;
         float perc=((float)n/dataset_size)*100;
-        System.out.println("perc "+perc);
         if(perc<=2){
             p=0.1;
         }
@@ -31,6 +30,7 @@ public class BloomFilterUtility {
     public static int getNumberHashFunct(int size, int n){
         return (int) ((size / n) * Math.log(2));
     }
+
 
 
 
