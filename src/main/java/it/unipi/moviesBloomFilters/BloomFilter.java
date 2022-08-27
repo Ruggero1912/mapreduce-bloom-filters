@@ -56,6 +56,10 @@ public class BloomFilter implements Writable {
         return true;
     }
 
+    public void or(BloomFilter b) {
+        this.bits.or(b.getBits());
+    }
+
     public String toString(){
         return this.bits.toString();
     }
@@ -81,5 +85,29 @@ public class BloomFilter implements Writable {
             longs[i] = dataInput.readLong();
         }
         this.bits = BitSet.valueOf(longs);
+    }
+
+    public BitSet getBits() {
+        return bits;
+    }
+
+    public void setBits(BitSet bits) {
+        this.bits = bits;
+    }
+
+    public int getM() {
+        return m;
+    }
+
+    public void setM(int m) {
+        this.m = m;
+    }
+
+    public int getK() {
+        return k;
+    }
+
+    public void setK(int k) {
+        this.k = k;
     }
 }
