@@ -12,8 +12,10 @@ public class BloomFilterGenerationReducer extends Reducer<IntWritable, BloomFilt
         BloomFilter finalBf = null;
 
         for (BloomFilter bf: bloomFilters) {
-            if(finalBf == null)
+            if(finalBf == null) {
                 finalBf = bf;
+                continue;
+            }
 
             finalBf.or(bf);
         }

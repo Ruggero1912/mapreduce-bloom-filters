@@ -25,6 +25,9 @@ public class BloomFilter implements Writable {
         this.bits = new BitSet(m);
     }
 
+    public BloomFilter() {
+    }
+
     /**
      * adds an item to the Bloom filter
      * @param item
@@ -34,7 +37,7 @@ public class BloomFilter implements Writable {
         // for each it sets one bit in the Bloom filter bits array
         for (int i = 0; i < this.k; i++) {
             //String id = item.replace("t", "0");
-            int digestIndex = (int) ((MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
+            int digestIndex = (int) (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
             this.bits.set(digestIndex);
         }
 
@@ -48,7 +51,7 @@ public class BloomFilter implements Writable {
     public boolean check(String item) {
         for (int i = 0; i < this.k; i++) {
             //String id = item.replace("t", "0");
-            int digestIndex = (int) ((MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
+            int digestIndex = (int) (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
             if (!this.bits.get(digestIndex)) {
                 return false;
             }

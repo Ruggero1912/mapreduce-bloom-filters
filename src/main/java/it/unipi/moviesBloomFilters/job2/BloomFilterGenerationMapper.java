@@ -25,10 +25,12 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
         // Reading parameters from HDFS
         int m, k;
 
-        System.out.println("INIZIO LOG CON SYSTEMOUT");
+        for (int i = 0; i < ratings; i++)
+            bfArray[i] = new BloomFilter(50, 3);
 
+        /*
         try {
-            Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/output-prova/part-r-00000"); // Location of file in HDFS
+            Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/output_prova/part-r-00000"); // Location of file in HDFS
             SequenceFile.Reader reader = new SequenceFile.Reader(new Configuration(), SequenceFile.Reader.file(pt));
             boolean hasNext;
             do {
@@ -53,7 +55,7 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
 
         } catch (Exception e) {
             e.getStackTrace();
-        }
+        }*/
     }
 
     @Override
@@ -64,16 +66,8 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
 
         MovieRow row = BloomFilterUtility.parseRow(record);
         if (row != null) {
-
             System.out.println("MovieID" + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
             System.out.println("Array length" + bfArray.length);
-
-            for (int i = 0; i < bfArray.length; i++) {
-                if(bfArray[i] == null)
-                    System.out.println("Index " + i + "  è vuoto");
-                else
-                    System.out.println(" " + bfArray[i]);
-            }
 
             bfArray[row.getRoundedRating() - 1].add(row.getMovieID());
         }
