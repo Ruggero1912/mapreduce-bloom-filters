@@ -6,6 +6,8 @@ import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
+import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -47,6 +49,10 @@ public class Main {
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
+        startTime= System.currentTimeMillis();
+        Job3(args);
+        stopTime = System.currentTimeMillis();
+        System.out.println("TEMPO DI ESECUZIONE JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         System.exit(0);
     }
@@ -58,6 +64,7 @@ public class Main {
         job1.setInputFormatClass(NLineInputFormat.class);
         NLineInputFormat.addInputPath(job1, new Path(args[0]));
         job1.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", (N_LINES));
+
         job1.setJarByClass(Main.class);
         job1.setMapperClass(DatasetCountInMapperCombiner.class);
         job1.setReducerClass(DatasetCountReducer.class);
@@ -70,11 +77,9 @@ public class Main {
 
         FileOutputFormat.setOutputPath(job1, new Path(args[1]));
         Boolean countSuccess = job1.waitForCompletion(true);
-        if(!countSuccess) {
+        if (!countSuccess) {
             System.exit(0);
         }
-
-
     }
 
     public static void Job2(Configuration conf, String[] otherArgs, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
@@ -115,6 +120,31 @@ public class Main {
         FileOutputFormat.setOutputPath(job2, new Path(args[1] + "_2"));
         Boolean countSuccess = job2.waitForCompletion(true);
         if(!countSuccess) {
+            System.exit(0);
+        }
+    }
+
+    private static void Job3(String[] args) throws IOException, InterruptedException, ClassNotFoundException {
+        Configuration conf3 = new Configuration();
+
+        Job job3 = Job.getInstance(conf3, "False Positive Rate Evaluation");
+        job3.setInputFormatClass(NLineInputFormat.class);
+        NLineInputFormat.addInputPath(job3, new Path(args[0]));
+        job3.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", N_LINES);
+
+        job3.setJarByClass(Main.class);
+        job3.setMapperClass(FiltersTestInMapperCombiner.class);
+        job3.setReducerClass(FiltersTestReducer.class);
+
+        job3.setMapOutputKeyClass(IntWritable.class);
+        job3.setMapOutputValueClass(IntArrayWritable.class);
+
+        job3.setOutputKeyClass(IntWritable.class);
+        job3.setOutputValueClass(IntArrayWritable.class);
+
+        FileOutputFormat.setOutputPath(job3, new Path(args[1] + "_3"));
+        Boolean countSuccess3 = job3.waitForCompletion(true);
+        if(!countSuccess3) {
             System.exit(0);
         }
     }
