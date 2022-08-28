@@ -92,21 +92,20 @@ public class Main {
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(BloomFilter.class);
 
-        Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/output_prova/"); // Location of file in HDFS
+        Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/");
         FileSystem fs = FileSystem.get(conf);
         FileStatus[] status = fs.listStatus(pt);
         for (FileStatus fileStatus : status) {
             if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
                 BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
+                int n, index;
+                for(Iterator<String> it = br.lines().iterator(); it.hasNext();) {
+                    String[] tokens = it.next().split("\t");
+                    index = Integer.parseInt(tokens[0]) - 1;
+                    n = Integer.parseInt(tokens[1]);
+                    System.out.println("Rating: " + (index + 1) + " | n: " + n);
 
-                int i = 0;
-                for(Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
-                    String line = it.next();
-                    String[] tokens = line.split("\t");
-                    System.out.println("Rating: " + Integer.parseInt(tokens[0]) + " | n: " + Integer.parseInt(tokens[1]));
-
-                    job2.getConfiguration().setInt("filter." + i + ".parameter.n", Integer.parseInt(tokens[1]));
-                    i = i + 1;
+                    job2.getConfiguration().setInt("filter." + index + ".parameter.n", n);
                 }
                 br.close();
                 fs.close();
