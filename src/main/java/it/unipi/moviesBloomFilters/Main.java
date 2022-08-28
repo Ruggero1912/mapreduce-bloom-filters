@@ -10,12 +10,15 @@ import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.NLineInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.kerby.config.Conf;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -48,6 +51,7 @@ public class Main {
         Job2(conf1, otherArgs, args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+
 
         startTime= System.currentTimeMillis();
         Job3(args);
@@ -97,6 +101,8 @@ public class Main {
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(BloomFilter.class);
 
+        job2.setOutputFormatClass(SequenceFileOutputFormat.class);
+
         Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/");
         FileSystem fs = FileSystem.get(conf);
         FileStatus[] status = fs.listStatus(pt);
@@ -109,7 +115,6 @@ public class Main {
                     index = Integer.parseInt(tokens[0]) - 1;
                     n = Integer.parseInt(tokens[1]);
                     //System.out.println("Rating: " + (index + 1) + " | n: " + n);
-
                     job2.getConfiguration().setInt("filter." + index + ".parameter.n", n);
                 }
                 br.close();
@@ -141,6 +146,9 @@ public class Main {
 
         job3.setOutputKeyClass(IntWritable.class);
         job3.setOutputValueClass(IntArrayWritable.class);
+
+        String filename = "hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_2/part-r-00000";
+        job3.addCacheFile(new Path(filename).toUri());
 
         FileOutputFormat.setOutputPath(job3, new Path(args[1] + "_3"));
         Boolean countSuccess3 = job3.waitForCompletion(true);

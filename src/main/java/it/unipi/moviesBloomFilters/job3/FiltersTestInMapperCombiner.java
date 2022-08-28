@@ -3,11 +3,14 @@ package it.unipi.moviesBloomFilters.job3;
 import it.unipi.moviesBloomFilters.BloomFilter;
 import it.unipi.moviesBloomFilters.IntArrayWritable;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Mapper;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.StringTokenizer;
 
 public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritable, IntArrayWritable> {
@@ -22,21 +25,27 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
     private int[] counterTN = new int[N_FILTERS];
 
     public void setup(Context ctx) throws IOException {
+        URI[] cachedFiles = ctx.getCacheFiles();
+        for (URI fileStatus : cachedFiles) {
+            if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
 
-        /* TODO: retrieve bloom filters from HDFS */
-        Path path = new Path(BLOOM_FILTERS_PATH);
-        SequenceFile.Reader reader = new SequenceFile.Reader(new Configuration(), SequenceFile.Reader.file(path));
-        boolean hasNext;
+                SequenceFile.Reader reader = new SequenceFile.Reader(new Configuration(), SequenceFile.Reader.file(new Path(fileStatus.getPath())));
 
-        do {
-            Text key = new Text();
-            BloomFilter filter = new BloomFilter();
-            hasNext = reader.next(key, filter);
+                //SequenceFile.Reader reader = new SequenceFile.Reader(new InputStreamReader(fs.open(new Path(fileStatus.getPath()))));
+                boolean hasNext;
 
-            /* obtain the index in filters array from the rating decreased by one */
-            int filter_index = Integer.parseInt(key.toString()) - 1;
-            bloomFilters[filter_index] = filter;
-        } while (hasNext);
+                do {
+                    IntWritable key = new IntWritable();
+                    BloomFilter filter = new BloomFilter();
+                    hasNext = reader.next(key, filter);
+                    if(key == null || filter == null || filter.getK() == 0){
+                        continue;
+                    }
+                    System.out.println("ho letto chiave: " + key.get() + " | bloom filter: " + filter.toString());
+                    this.bloomFilters[key.get() - 1] = filter;
+                } while (hasNext);
+            }
+        }
     }
 
     public void map(Object key, Text value, Context context){
@@ -45,9 +54,9 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
         StringTokenizer itr = new StringTokenizer(value.toString(), "\t");
 
         String movieID = itr.nextToken();
-        int roundedRating = Math.round(Float.parseFloat(itr.nextToken())) - 1;
+        int roundedRating = Math.round(Float.parseFloat(itr.nextToken()));
 
-        int i = 0;
+        int i = 1;
         for (BloomFilter bloomFilter:
              bloomFilters) {
 
