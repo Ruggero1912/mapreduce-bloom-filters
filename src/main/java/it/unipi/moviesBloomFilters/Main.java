@@ -4,6 +4,8 @@ import it.unipi.moviesBloomFilters.job1.DatasetCountInMapperCombiner;
 import it.unipi.moviesBloomFilters.job1.DatasetCountReducer;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -13,7 +15,10 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.GenericOptionsParser;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
@@ -86,6 +91,27 @@ public class Main {
 
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(BloomFilter.class);
+
+        Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/output_prova/"); // Location of file in HDFS
+        FileSystem fs = FileSystem.get(conf);
+        FileStatus[] status = fs.listStatus(pt);
+        for (FileStatus fileStatus : status) {
+            if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
+
+                int i = 0;
+                for(Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
+                    String line = it.next();
+                    String[] tokens = line.split("\t");
+                    System.out.println("Rating: " + Integer.parseInt(tokens[0]) + " | n: " + Integer.parseInt(tokens[1]));
+
+                    job2.getConfiguration().setInt("filter." + i + ".parameter.n", Integer.parseInt(tokens[1]));
+                    i = i + 1;
+                }
+                br.close();
+                fs.close();
+            }
+        }
 
         FileOutputFormat.setOutputPath(job2, new Path(args[1] + "_2"));
         Boolean countSuccess = job2.waitForCompletion(true);

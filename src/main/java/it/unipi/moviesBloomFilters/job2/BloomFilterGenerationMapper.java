@@ -4,58 +4,40 @@ import it.unipi.moviesBloomFilters.BloomFilter;
 import it.unipi.moviesBloomFilters.BloomFilterUtility;
 import it.unipi.moviesBloomFilters.MovieRow;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.kerby.config.Config;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
-import java.util.logging.Logger;
 
 public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritable, BloomFilter> {
     private BloomFilter[] bfArray;
     private final int ratings = 10;
-    static Logger log = Logger.getLogger(BloomFilterGenerationMapper.class.getName());
 
     @Override
     public void setup(Context context) {
         bfArray = new BloomFilter[ratings];
 
         // Reading parameters from HDFS
-        int m, k;
+        int m, k, n;
 
-        for (int i = 0; i < ratings; i++)
-            bfArray[i] = new BloomFilter(50, 3);
-
-        /*
-        try {
-            Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/output_prova/part-r-00000"); // Location of file in HDFS
-            SequenceFile.Reader reader = new SequenceFile.Reader(new Configuration(), SequenceFile.Reader.file(pt));
-            boolean hasNext;
-            do {
-                IntWritable keyWritable = new IntWritable();
-                IntWritable nWritable = new IntWritable();
-                hasNext = reader.next(keyWritable, nWritable);
-
-                int rating = keyWritable.get();
-                int n = nWritable.get();
+        for (int i = 0; i < ratings; i++) {
+            n = context.getConfiguration().getInt("filter." + i + ".parameter.n", 0);
+            if ( n != 0) {
                 double p = BloomFilterUtility.getP(n);
                 m = BloomFilterUtility.getSize(n, p);
                 k = BloomFilterUtility.getNumberHashFunct(m, n);
 
-                System.out.println("m: " + m + " | k: " + k + " | n:" + n);
-
-                if (m == 0 || k == 0)
-                    throw new Exception("m or k are 0");
-                else
-                    bfArray[rating - 1] = new BloomFilter(m, k);
-
-            } while(hasNext);
-
-        } catch (Exception e) {
-            e.getStackTrace();
-        }*/
+                if (m != 0 && k != 0)
+                    bfArray[i] = new BloomFilter(m, k);
+            }
+        }
     }
 
     @Override

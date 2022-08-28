@@ -51,7 +51,7 @@ public class BloomFilter implements Writable {
     public boolean check(String item) {
         for (int i = 0; i < this.k; i++) {
             //String id = item.replace("t", "0");
-            int digestIndex = (int) (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
+            int digestIndex = (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
             if (!this.bits.get(digestIndex)) {
                 return false;
             }
