@@ -11,8 +11,8 @@ import org.apache.hadoop.util.hash.MurmurHash;
 public class BloomFilter implements Writable {
     private BitSet bits;
     private int m;
-    private int k;
-    // k hash function Murmur Hash
+    private int k; // k hash function Murmur Hash
+    private int numElem; // elements in the filter
 
     /**
      * instantiate a new empty Bloom filter
@@ -23,6 +23,7 @@ public class BloomFilter implements Writable {
         this.m = m;
         this.k = k;
         this.bits = new BitSet(m);
+        this.numElem = 0;
     }
 
     public BloomFilter() {
@@ -37,10 +38,11 @@ public class BloomFilter implements Writable {
         // for each it sets one bit in the Bloom filter bits array
         for (int i = 0; i < this.k; i++) {
             //String id = item.replace("t", "0");
-            int digestIndex = (int) (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
-            this.bits.set(digestIndex);
+            int digestIndex = (Math.abs(MurmurHash.getInstance().hash(item.getBytes(), i)) % this.m);
+            //System.out.println("MovieId: " +  item + " | Hash [" + i + "] to index " +  digestIndex);
+            this.bits.set(digestIndex, true);
         }
-
+        this.numElem = this.numElem + 1;
     }
 
     /**
@@ -63,15 +65,16 @@ public class BloomFilter implements Writable {
         this.bits.or(b.getBits());
     }
 
-    public String toString(){
-        return this.bits.toString();
-    }
+    //public String toString(){
+    //    return this.bits.toString();
+    //}
 
     @Override
     public void write(DataOutput dataOutput) throws IOException {
         long[] longs = this.bits.toLongArray();
         dataOutput.writeInt(m);
         dataOutput.writeInt(k);
+        dataOutput.writeInt(numElem);
         dataOutput.writeInt(longs.length);
         for (int i = 0; i < longs.length; i++) {
             dataOutput.writeLong(longs[i]);
@@ -83,6 +86,7 @@ public class BloomFilter implements Writable {
     public void readFields(DataInput dataInput) throws IOException {
         this.m = dataInput.readInt();
         this.k = dataInput.readInt();
+        this.numElem = dataInput.readInt();
         long[] longs = new long[dataInput.readInt()];
         for (int i = 0; i < longs.length; i++) {
             longs[i] = dataInput.readLong();
@@ -112,5 +116,23 @@ public class BloomFilter implements Writable {
 
     public void setK(int k) {
         this.k = k;
+    }
+
+    @Override
+    public String toString() {
+        return "BloomFilter{" +
+                "bits=" + bits +
+                ", m=" + m +
+                ", k=" + k +
+                ", numElem=" + numElem +
+                '}';
+    }
+
+    public int getNumElem() {
+        return numElem;
+    }
+
+    public void setNumElem(int numElem) {
+        this.numElem = numElem;
     }
 }

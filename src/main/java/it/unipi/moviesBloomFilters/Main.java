@@ -103,7 +103,7 @@ public class Main {
                     String[] tokens = it.next().split("\t");
                     index = Integer.parseInt(tokens[0]) - 1;
                     n = Integer.parseInt(tokens[1]);
-                    System.out.println("Rating: " + (index + 1) + " | n: " + n);
+                    //System.out.println("Rating: " + (index + 1) + " | n: " + n);
 
                     job2.getConfiguration().setInt("filter." + index + ".parameter.n", n);
                 }

@@ -11,15 +11,21 @@ public class BloomFilterGenerationReducer extends Reducer<IntWritable, BloomFilt
     public void reduce(IntWritable rating, Iterable<BloomFilter> bloomFilters, Context context) throws IOException, InterruptedException {
         BloomFilter finalBf = null;
 
+        //System.out.println("RATING " + rating.get());
         for (BloomFilter bf: bloomFilters) {
+            //System.out.println("BF (from mapper): " + bf);
             if(finalBf == null) {
-                finalBf = bf;
+                finalBf = new BloomFilter(bf.getM(), bf.getK());
+                finalBf.setNumElem(bf.getNumElem());
+                finalBf.setBits(bf.getBits());
                 continue;
             }
-
             finalBf.or(bf);
+            finalBf.setNumElem(finalBf.getNumElem() + bf.getNumElem());
+            //System.out.println("BF FINAL DOPO: " + finalBf);
         }
 
+        //System.out.println("===============================");
         context.write(rating, finalBf);
     }
 }

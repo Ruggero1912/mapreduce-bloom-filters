@@ -3,16 +3,9 @@ package it.unipi.moviesBloomFilters.job2;
 import it.unipi.moviesBloomFilters.BloomFilter;
 import it.unipi.moviesBloomFilters.BloomFilterUtility;
 import it.unipi.moviesBloomFilters.MovieRow;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.kerby.config.Config;
-import org.apache.log4j.Logger;
 
 import java.io.IOException;
 
@@ -48,9 +41,7 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
 
         MovieRow row = BloomFilterUtility.parseRow(record);
         if (row != null) {
-            System.out.println("MovieID" + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
-            System.out.println("Array length" + bfArray.length);
-
+            //System.out.println("MovieID " + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
             bfArray[row.getRoundedRating() - 1].add(row.getMovieID());
         }
     }
@@ -58,7 +49,9 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
     @Override
     public void cleanup(Context context) throws IOException, InterruptedException {
         for (int i = 0; i < ratings; i++)
-            if(bfArray[i] != null)
+            if (bfArray[i] != null && !bfArray[i].getBits().isEmpty()) {
+                //System.out.println("[" + (i + 1) + "] Sending " + bfArray[i].toString());
                 context.write(new IntWritable(i + 1), bfArray[i]);
+            }
     }
 }
