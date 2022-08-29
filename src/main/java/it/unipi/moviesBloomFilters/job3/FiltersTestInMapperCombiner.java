@@ -57,28 +57,38 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
         int roundedRating = Math.round(Float.parseFloat(itr.nextToken()));
 
         int i = 1;
+        System.out.println("=============================");
+        System.out.println("RECORD (id, rating): " + movieID + " " + roundedRating);
         for (BloomFilter bloomFilter:
              bloomFilters) {
 
-            if(bloomFilter.check(movieID)){
-                if (i == roundedRating)
-                    counterTP[i-1] += 1;
-                else
-                    counterFP[i-1] += 1;
-            } else{
-                if (i != roundedRating)
-                    counterTN[i-1] += 1;
-                else
-                    counterFN[i-1] += 1;
+            System.out.println("TEST FILTER: " + i + " | CONTENUTO: " + bloomFilter);
+
+            if (bloomFilter != null) {
+                if (bloomFilter.check(movieID)) {
+                    System.out.println("IL FILM E' NEL BLOOM FILTER? " + bloomFilter.check(movieID));
+                    if (i == roundedRating)
+                        counterTP[i - 1] += 1;
+                    else
+                        counterFP[i - 1] += 1;
+                } else {
+                    if (i != roundedRating)
+                        counterTN[i - 1] += 1;
+                    else
+                        counterFN[i - 1] += 1;
+                }
             }
-            i += 1;
+                i += 1;
         }
+        System.out.println("=============================");
     }
 
     public void cleanup(Context ctx) throws IOException, InterruptedException {
+        System.out.println("CLEANUP");
         for (int i = 0; i < N_FILTERS; i++) {
-            Integer[] stats = {counterFP[i-1], counterFN[i-1], counterTP[i-1], counterTN[i-1]};
-            ctx.write(  new IntWritable(i), new IntArrayWritable(stats));
+            Integer[] stats = {counterFP[i], counterFN[i], counterTP[i], counterTN[i]};
+            System.out.println("STATS ["+ (i + 1) + "]: " + counterFP[i] + " " + counterFN[i] + " " + counterTP[i] + " " + counterTN[i]);
+            ctx.write(new IntWritable(i+1), new IntArrayWritable(stats));
         }
     }
 }

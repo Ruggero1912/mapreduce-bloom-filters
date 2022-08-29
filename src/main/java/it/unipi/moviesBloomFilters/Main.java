@@ -10,15 +10,12 @@ import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.NLineInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.apache.kerby.config.Conf;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -34,37 +31,40 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        Configuration conf1 = new Configuration();
-        String[] otherArgs = new GenericOptionsParser(conf1, args).getRemainingArgs();
-        if (otherArgs.length < 2) {
-            System.err.println("Usage: <input file> <output file> <lines per reducer>");
-            System.exit(2);
+        Configuration conf = new Configuration();
+        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+        if (otherArgs.length != 3) {
+            System.err.println("Usage: <input file> <output> <lines per mapper>");
+            System.exit(1);
         }
 
+        System.out.println("<input> = " + otherArgs[0]);
+        System.out.println("<output> = " + otherArgs[1]);
+        System.out.println("<lines per mapper> = " + otherArgs[2]);
+
         N_LINES = Integer.parseInt(args[2]);
-        startTime= System.currentTimeMillis();
-        Job1(conf1, otherArgs, args);
+        startTime = System.currentTimeMillis();
+        Job1(conf, args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
-        startTime= System.currentTimeMillis();
-        Job2(conf1, otherArgs, args);
+        startTime = System.currentTimeMillis();
+        Job2(conf, args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
-
-        startTime= System.currentTimeMillis();
-        Job3(args);
+        startTime = System.currentTimeMillis();
+        //Job3(args);
         stopTime = System.currentTimeMillis();
-        System.out.println("TEMPO DI ESECUZIONE JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+        System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         System.exit(0);
     }
 
 
-    private static void Job1(Configuration conf1, String[] otherArgs, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
+    private static void Job1(Configuration conf, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
 
-        Job job1 = Job.getInstance(conf1, "counter of films per rating");
+        Job job1 = Job.getInstance(conf, "counter of films per rating");
         job1.setInputFormatClass(NLineInputFormat.class);
         NLineInputFormat.addInputPath(job1, new Path(args[0]));
         job1.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", (N_LINES));
@@ -80,51 +80,73 @@ public class Main {
         job1.setOutputValueClass(IntWritable.class);
 
         FileOutputFormat.setOutputPath(job1, new Path(args[1]));
-        Boolean countSuccess = job1.waitForCompletion(true);
-        if (!countSuccess) {
+
+        Boolean countSuccess1 = job1.waitForCompletion(true);
+        if(!countSuccess1) {
             System.exit(0);
         }
     }
 
-    public static void Job2(Configuration conf, String[] otherArgs, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
+    public static void Job2(Configuration conf, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
+
         Job job2 = Job.getInstance(conf, "Bloom Filter Generation");
-        job2.setInputFormatClass(NLineInputFormat.class);
-        NLineInputFormat.addInputPath(job2, new Path(args[0]));
-        job2.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", (N_LINES));
         job2.setJarByClass(Main.class);
+
+        // Set mapper/reducer
         job2.setMapperClass(BloomFilterGenerationMapper.class);
         job2.setReducerClass(BloomFilterGenerationReducer.class);
 
+        // Mapper's output key-value
         job2.setMapOutputKeyClass(IntWritable.class);
         job2.setMapOutputValueClass(BloomFilter.class);
 
+        // Reducer's output key-value
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(BloomFilter.class);
 
-        job2.setOutputFormatClass(SequenceFileOutputFormat.class);
+        // Define I/O
+        NLineInputFormat.addInputPath(job2, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job2, new Path(args[1] + "_2"));
+
+        job2.setInputFormatClass(NLineInputFormat.class);
+        job2.setOutputFormatClass(SequenceFileOutputFormat.class); // stores data in serialized key-value pair
+
+        // Configuration parameters
+        job2.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", N_LINES);
 
         Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/");
         FileSystem fs = FileSystem.get(conf);
         FileStatus[] status = fs.listStatus(pt);
         for (FileStatus fileStatus : status) {
             if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
+                int n, m, k, rating;
+                double p;
+
                 BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
-                int n, index;
                 for(Iterator<String> it = br.lines().iterator(); it.hasNext();) {
                     String[] tokens = it.next().split("\t");
-                    index = Integer.parseInt(tokens[0]) - 1;
+
+                    rating = Integer.parseInt(tokens[0]);
                     n = Integer.parseInt(tokens[1]);
-                    //System.out.println("Rating: " + (index + 1) + " | n: " + n);
-                    job2.getConfiguration().setInt("filter." + index + ".parameter.n", n);
+
+                    // Computing filter parameters
+                    if (n != 0) {
+                        p = BloomFilterUtility.getP(n);
+                        m = BloomFilterUtility.getSize(n, p);
+                        k = BloomFilterUtility.getNumberHashFunct(m, n);
+
+                        // Passing parameters to the mapper for each filter
+                        job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.m", m);
+                        job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.k", k);
+                    }
                 }
                 br.close();
                 fs.close();
             }
         }
 
-        FileOutputFormat.setOutputPath(job2, new Path(args[1] + "_2"));
-        Boolean countSuccess = job2.waitForCompletion(true);
-        if(!countSuccess) {
+        Boolean countSuccess2 = job2.waitForCompletion(true);
+        if(!countSuccess2) {
             System.exit(0);
         }
     }
