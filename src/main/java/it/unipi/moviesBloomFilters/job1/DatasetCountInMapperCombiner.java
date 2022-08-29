@@ -7,9 +7,13 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
+import java.util.StringTokenizer;
 
 public class DatasetCountInMapperCombiner extends Mapper<Object, Text, IntWritable, IntWritable>{
     private int[] counters;
+    private final IntWritable key = new IntWritable();
+    private final IntWritable value = new IntWritable();
+
     public void setup(Context ctx){
         this.counters = new int[10];
         //Arrays.fill(this.counters, 0);
@@ -22,15 +26,26 @@ public class DatasetCountInMapperCombiner extends Mapper<Object, Text, IntWritab
         if(record == null || record.length() == 0)
             return;
 
-        MovieRow row = BloomFilterUtility.parseRow(record);
-        if (row != null)
-            this.counters[row.getRoundedRating() - 1]++;
+        //MovieRow row = BloomFilterUtility.parseRow(record);
+        String[] tags = value.toString().split("\t");
+        //StringTokenizer itr = new StringTokenizer(value, "\t");
+        if(tags.length != 3)
+            return;
+
+        int roundedRating = Math.round(Float.parseFloat(tags[1]));
+        if (roundedRating == 0)
+            return;
+
+        this.counters[roundedRating - 1]++;
     }
+
     public void cleanup(Context ctx) throws IOException, InterruptedException {
         int i = 1;
         for (int c:
              this.counters) {
-            ctx.write(new IntWritable(i), new IntWritable(c));
+            key.set(i);
+            value.set(c);
+            ctx.write(key, value);
             i++;
         }
     }
