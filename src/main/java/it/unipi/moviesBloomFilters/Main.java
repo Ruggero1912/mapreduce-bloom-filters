@@ -10,6 +10,7 @@ import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.NLineInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -54,7 +55,7 @@ public class Main {
         System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         startTime = System.currentTimeMillis();
-        //Job3(args);
+        Job3(args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
@@ -164,10 +165,10 @@ public class Main {
         job3.setReducerClass(FiltersTestReducer.class);
 
         job3.setMapOutputKeyClass(IntWritable.class);
-        job3.setMapOutputValueClass(IntArrayWritable.class);
+        job3.setMapOutputValueClass(Text.class);
 
         job3.setOutputKeyClass(IntWritable.class);
-        job3.setOutputValueClass(IntArrayWritable.class);
+        job3.setOutputValueClass(Text.class);
 
         String filename = "hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_2/part-r-00000";
         job3.addCacheFile(new Path(filename).toUri());
