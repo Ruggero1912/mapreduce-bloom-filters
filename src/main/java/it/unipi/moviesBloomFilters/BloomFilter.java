@@ -34,6 +34,12 @@ public class BloomFilter implements Writable, Serializable {
         this.bits = bits;
     }
 
+    public BloomFilter(BloomFilter bf){
+        this.m = bf.getM();
+        this.k = bf.getK();
+        this.bits = (BitSet) bf.getBits().clone();
+    }
+
     /**
      * adds an item to the Bloom filter
      * @param item
@@ -63,6 +69,12 @@ public class BloomFilter implements Writable, Serializable {
             }
         }
         return true;
+    }
+
+    public void copy(BloomFilter copied){
+        this.m = copied.getM();
+        this.k = copied.getK();
+        this.bits = (BitSet) copied.getBits().clone();
     }
 
     public void or(BloomFilter b) {
@@ -96,6 +108,12 @@ public class BloomFilter implements Writable, Serializable {
         return bits;
     }
 
+    public void setParameters(int m, int k){
+        this.m = m;
+        this.k = k;
+        this.bits = new BitSet(m);
+    }
+
     public void setBits(BitSet bits) {
         this.bits = bits;
     }
@@ -123,5 +141,9 @@ public class BloomFilter implements Writable, Serializable {
                 ", m=" + m +
                 ", k=" + k +
                 '}';
+    }
+
+    public boolean isInitialized() {
+        return this.k > 0 && this.m > 0;
     }
 }
