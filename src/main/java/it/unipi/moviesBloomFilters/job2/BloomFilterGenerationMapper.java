@@ -10,21 +10,20 @@ import org.apache.hadoop.mapreduce.Mapper;
 import java.io.IOException;
 
 public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritable, BloomFilter> {
-
-    private static BloomFilter[] bfArray;
+    private final BloomFilter[] bfArray = new BloomFilter[ratings];
     private static final int ratings = 10;
+    private final IntWritable key = new IntWritable();
 
     @Override
     public void setup(Context context) {
         int m, k;
-        bfArray = new BloomFilter[ratings];
 
         for (int i = 0; i < ratings; i++) {
             m = context.getConfiguration().getInt("bf." + i + ".parameter.m", 0);
             k = context.getConfiguration().getInt("bf." + i + ".parameter.k", 0);
 
             if (m != 0 && k != 0)
-                bfArray[i] = new BloomFilter(m, k);
+                bfArray[i] = new BloomFilter( m, k);
         }
     }
 
@@ -34,18 +33,27 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
         if(record == null || record.length() == 0)
             return;
 
-        MovieRow row = BloomFilterUtility.parseRow(record);
-        if (row != null) {
-            //System.out.println("MovieID " + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
-            bfArray[row.getRoundedRating() - 1].add(row.getMovieID());
-        }
+        //MovieRow row = BloomFilterUtility.parseRow(record);
+        String[] tags = value.toString().split("\t");
+        //StringTokenizer itr = new StringTokenizer(value, "\t");
+        if(tags.length != 3)
+            return;
+
+        int roundedRating = Math.round(Float.parseFloat(tags[1]));
+        if (roundedRating == 0)
+            return;
+
+        //System.out.println("MovieID " + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
+        bfArray[roundedRating - 1].add(tags[0]);
     }
 
     @Override
     public void cleanup(Context context) throws IOException, InterruptedException {
-        for (int i = 0; i < ratings; i++) {
-            if (bfArray[i] != null && !bfArray[i].getBits().isEmpty())
-                context.write(new IntWritable(i + 1), bfArray[i]);
-        }
+        for (int i = 0; i < ratings; i++)
+            if (bfArray[i] != null && !bfArray[i].getBits().isEmpty()) {
+                //System.out.println("[" + (i + 1) + "] Sending " + bfArray[i].toString());
+                key.set(i + 1);
+                context.write( key, bfArray[i]);
+            }
     }
 }
