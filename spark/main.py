@@ -1,3 +1,4 @@
+from tabnanny import verbose
 from unicodedata import combining
 from pyspark import SparkConf, SparkContext, RDD
 import time
@@ -37,6 +38,12 @@ def addToFilter(bloom_filter, movie_id, m, k) -> bitarray:
     return bloom_filter
 
 def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
+    assert type(movie_id) == str, f"the type of the given movieid is {type(movie_id)} content: {movie_id}"
+    if(not bloom_filter or bloom_filter is None):
+        return False
+    #assert isinstance(bloom_filter, bitarray) , f"the type of bloom filter is not array"
+    #if( bloom_filter.__len__() == 0):
+    #    return False
     for i in range(k):
         if bloom_filter[ abs( mmh3.hash(movie_id, i) ) % m ] == False:
             return False
@@ -49,7 +56,7 @@ def job1(ratings : RDD) -> dict:
     """
     return ratings.countByKey()
 
-def job2(ratings: RDD, M : list, K : list) -> RDD:
+def job2(ratingsKKV: RDD, M : list, K : list) -> RDD:
     """
     creates and sets the bits of a bloom filter for each rating level
     - input list M: the number of bits for each bloom filter
@@ -62,16 +69,16 @@ def job2(ratings: RDD, M : list, K : list) -> RDD:
         
         key = row2[0]
 
-        if( not bs): # zeroValue case , here it is not set the length of the bitset
+        if( not bs ): # zeroValue case , here it is not set the length of the bitset
             return initializeBloomFilter(row2[1], M[key - 1], K[key - 1])
         return addToFilter(bs, row2[1], M[key - 1], K[key - 1])
 
     def combFunc(bitset1 : bitarray, bitset2 : bitarray) -> bitarray:
         return bitset1.__or__(bitset2)
 
-    kkvRDD = ratings.map(lambda x : (x[0], (x[0], x[1])))
+    
     # (roundedRating, (roundedRating, filmID ) )    i.e. : (6, (6, 'tt0000001') )
-    bitsets = kkvRDD.aggregateByKey(zeroValue=bitarray(), seqFunc=seqFunc, combFunc=combFunc)
+    bitsets = ratingsKKV.aggregateByKey(zeroValue=bitarray(), seqFunc=seqFunc, combFunc=combFunc)
 
     return bitsets
     
@@ -128,8 +135,67 @@ def job2(ratings: RDD, M : list, K : list) -> RDD:
     (5, 'tt0000006')
     """
 
+def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
+    """
+    bitsets is a list, at the index (rating - 1) we have the bloom filter for the rating rating
 
-def main(input_file_path="data.tsv"):
+    < FP - FN - TP - TN >
+    """
+    FP_OFFSET = 0
+    FN_OFFSET = 1
+    TP_OFFSET = 2
+    TN_OFFSET = 3
+    # (key, (key, value))
+    def seqOp(scores : list, row) -> list:
+        for index, bloom_filter in enumerate(bitsets):
+            if checkInFilter(bloom_filter, row[1][1], M[index], K[index]):
+                if index == (row[1][0] - 1):
+                    scores[ ( index ) * 4 + TP_OFFSET] += 1
+                else:
+                    scores[ (index) * 4 + FP_OFFSET] += 1
+            else:
+                if index == (row[1][0] - 1):
+                    scores[ ( index ) * 4 + FN_OFFSET] += 1
+                else:
+                    scores[( index ) * 4 + TN_OFFSET] += 1
+        return scores
+    """
+    def combOp(scores1 : list, scores2 : list) -> list:
+        assert len(scores1) == len(scores2)
+        for i in range(len(scores1)):
+            scores1[i] += scores2[i]
+        return scores1
+    """
+    def combOp(scores1: list, scores2: list) -> list:
+
+        assert len(scores1) == len(scores2) == 40 , f"LANDRY len: {len(scores1)} | content scores1: {scores1}"
+        return [sum(x) for x in zip(scores1, scores2)]
+
+    return ratingsKKV.aggregate(zeroValue=( [0] * 40), seqOp=seqOp, combOp=combOp)
+
+    """
+    zeroValue = [
+            fp1, ... fp10, 
+            fn1, ... fn10,
+            tp1, ... tp10,
+            tn1, ... tn10
+        ]
+    zeroValue = [
+        < FP1 - FN1 - TP1 - TN1 >,
+        < FP2 - FN2 - TP2 - TN2 >,
+        ...
+        < FP10 - FN10 - TP10 - TN10 >,
+    ]
+    rating = 3
+    caso FP:
+    FP_displacement = 0
+        zv = [ ( rating - 1 ) * 4 + FP_displacement ]
+
+    """
+    pass
+
+
+def main(input_file_path="data.tsv", verbose=False):
 
     conf = SparkConf().setMaster("local").setAppName("Film Reviews bloom filters")
     sc = SparkContext(conf=conf)
@@ -165,11 +231,33 @@ def main(input_file_path="data.tsv"):
 
     print(f"calculated values for \nP: {P}\n\nM: {M}\n\nK: {K}\n\n")
     start_time = time.time()
-    bitsets = job2(ratings, M, K)
+    ratingsKKV = ratings.map(lambda x: (x[0], (x[0], x[1])))
+    bitsets = job2(ratingsKKV, M, K)
     tmp = bitsets.collect()
     end_time = time.time()
     print(f"job2 finished - elapsed time: {round(end_time - start_time, 3)} seconds")
-    #- \n\nresults: \n{tmp}
+    if verbose:
+        print(f"\nresults: \n{tmp}")
+    bloom_filters = [None] * 10
+    assert len(tmp) <= 10, "BIG ERROR"
+    for key, bs in tmp:
+        bloom_filters[key - 1] = bs
+    if verbose:
+        print(f"\nreordered: {bloom_filters}")
+
+    start_time = time.time()
+    results = job3(ratingsKKV, bloom_filters, M, K)
+    print(f"results type: {type(results)} | Content: {results}")
+    scores_list = results
+    end_time = time.time()
+    print(f"job3 finished - elapsed time: {round(end_time - start_time, 3)} seconds")
+    print("rating | < FP - FN - TP - TN >")
+    for index, el in enumerate(scores_list):
+        if index % 4 == 0:
+            print(f"\n{(index // 4) + 1} | ", end="")
+        print(f" {el} ", end="")
+    print()
+
 
 import sys
 
@@ -177,4 +265,7 @@ if __name__ == "__main__":
     input_file_name = "data.tsv"
     if sys.argv[1]:
         input_file_name = sys.argv[1]
-    main(input_file_path=input_file_name)
+    verbose = False
+    if len(sys.argv) > 2 and sys.argv[2]:
+        verbose = True
+    main(input_file_path=input_file_name, verbose=verbose)
