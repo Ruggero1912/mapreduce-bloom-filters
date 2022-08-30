@@ -74,6 +74,10 @@ def job2(ratingsKKV: RDD, M : list, K : list) -> RDD:
         return addToFilter(bs, row2[1], M[key - 1], K[key - 1])
 
     def combFunc(bitset1 : bitarray, bitset2 : bitarray) -> bitarray:
+        assert bitset1.__len__() == bitset2.__len__() , f"different bitsets length! bitset1 len: { bitset1.__len__()} bitset2 len: {bitset2.__len__()}"
+        if( not bitset1):
+            print(f"strange case happened")
+            return bitset2
         return bitset1.__or__(bitset2)
 
     
