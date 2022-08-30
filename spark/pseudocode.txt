@@ -1,0 +1,111 @@
+Generazione di n
+
+class Mapper
+    method Initialize
+        counters <- new AssociativeArray
+
+    method Map(key k, doc d)
+        roundedRating <- round(d.rating)
+        counters[roundedRating - 1] <- counters[roundedRating - 1] + 1
+
+    method Close
+        i <- 1
+        for all counter c in counters:
+            emit(i, c)
+            i <- i + 1
+
+class Reducer 
+    method reduce(key i, list[c1, c2, ...])
+        n <- 0
+        for all counter c in list[c1, c2 ..]
+            n <- n + c
+        emit(i, n)
+
+-------------------------------------------------------------------------------
+Generazione Bloom Filters
+
+class Mapper 
+    method Initialize(context ctx)
+        bloomFilterArray <- getBloomFilters(ctx)
+
+    method Map(key k, movieRow)
+        roundedRating <- round(movieRow.rating)
+        bloomFilterArray[roundedRating - 1].add(MovieRow.movieId)
+
+    method Close
+        i <- 1
+        for all BloomFilter in bloomFilterArray:
+            emit(i, BloomFilter)
+
+class Reducer
+    method Reducer(key rating, list BloomFilters)
+        newBloomFilter <- null
+        for all BloomFilter in list BloomFilters:
+            
+            if(newBloomFilter == null)
+                newBloomFilter <- BloomFilter
+
+            newBloomFilter <- newBloomFilter OR BloomFilter
+
+        emit(rating, newBloomFilter)
+
+-------------------------------------------------------------------------------
+Test BloomFilter
+
+class Mapper
+    method Initialize(context ctx)
+        counterFP <- new Array
+        counterFN <- new Array
+        counterTN <- new Array
+        counterTP <- new Array
+
+        bloomFilterArray <- ctx.getBloomFilters()
+
+    method Map(key k, movieRow)
+        roundedRating <- round(movieRow.rating)
+
+        i <- 1
+        for all BloomFilter in bloomFilterArray:
+            
+            if(BloomFilter.contains(movieRow.movieId))
+                if(i == roundedRating)
+                    counterTP[i - 1] <- counterTP[i - 1] + 1
+                else
+                    counterFP[i - 1] <- counterFP[i - 1] + 1
+            else                 
+                if(i != roundedRating)
+                    counterTN[i - 1] <- counterTN[i - 1] + 1
+                else
+                    counterFN[i - 1] <- counterFN[i - 1] + 1
+
+            i <- i + 1
+
+    method Close
+        for i in range(1, 10):
+            emit(i, (counterFN[i-1], counterFP[i-1], counterTN[i-1], counterTP[i-1]))
+
+class Reducer
+    method Reducer(key rating, list counters)
+        counterFP <- 0
+        counterFN <- 0
+        counterTN <- 0
+        counterTP <- 0
+
+        for all counter in list counters:
+            counterFN <- counterFN + counter[0]
+            counterFP <- counterFP + counter[1]
+            counterTN <- counterTN + counter[2]
+            counterTP <- counterTP + counter[3]
+
+        emit(rating, (counterFP, counterFN, counterTP, counterTN))
+
+
+
+
+
+
+
+
+
+
+
