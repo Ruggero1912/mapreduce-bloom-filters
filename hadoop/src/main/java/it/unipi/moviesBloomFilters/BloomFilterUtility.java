@@ -1,13 +1,10 @@
 package it.unipi.moviesBloomFilters;
-
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-
-import java.util.Arrays;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.StringTokenizer;
@@ -20,12 +17,12 @@ public class BloomFilterUtility {
         try {
             FileSystem fs = FileSystem.get(new Configuration());
             FileStatus[] status = fs.listStatus(path);
-            int dataset_size =0;
-            int sizes[] = new int[10];
+            int dataset_size;
+            int[] sizes = new int[10];
 
             for (FileStatus fileStatus : status) {
                 if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
-                    Integer rating, n;
+                    int rating;
                     int size;
 
                     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
@@ -90,13 +87,13 @@ public class BloomFilterUtility {
             FileSystem fs = FileSystem.get(new Configuration());
             FileStatus[] status = fs.listStatus(path);
             // fp_rates(key = rating, value = fpr of the relative bloom filter)
-            HashMap<Integer, Double> fp_rates= new HashMap<Integer, Double>();
+            HashMap<Integer, Double> fp_rates= new HashMap<>();
 
             for (FileStatus fileStatus : status) {
                 if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
-                    Integer rating;
+                    int rating;
                     String finalCounts;
-                    Double fpr = 0.0;
+                    double fpr;
 
                     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
                     System.out.println("rating: FP,FN,TP,TN");
@@ -107,11 +104,11 @@ public class BloomFilterUtility {
                         rating = Integer.parseInt(tokens[0]);
                         finalCounts = tokens[1];
 
-                        System.out.println(rating.toString()+"\t"+finalCounts);
+                        System.out.println(rating +"\t"+finalCounts);
 
-                        String counts[] = finalCounts.split(",");
-                        Double fp = Double.parseDouble(counts[0]);
-                        Double tn = Double.parseDouble(counts[3]);
+                        String[] counts = finalCounts.split(",");
+                        double fp = Double.parseDouble(counts[0]);
+                        double tn = Double.parseDouble(counts[3]);
                         fpr = fp/(fp+tn);
                         fp_rates.put(rating, fpr);
                     }
