@@ -21,6 +21,8 @@ import org.apache.hadoop.util.GenericOptionsParser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
@@ -32,37 +34,38 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-//        Configuration conf = new Configuration();
-//        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-//        if (otherArgs.length != 3) {
-//            System.err.println("Usage: <input file> <output> <lines per mapper>");
-//            System.exit(1);
-//        }
-//
-//        System.out.println("<input> = " + otherArgs[0]);
-//        System.out.println("<output> = " + otherArgs[1]);
-//        System.out.println("<lines per mapper> = " + otherArgs[2]);
-//
-//        N_LINES = Integer.parseInt(args[2]);
-//        startTime = System.currentTimeMillis();
-//        Job1(conf, args);
-//        stopTime = System.currentTimeMillis();
-//        System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
-//
-//        startTime = System.currentTimeMillis();
-//        Job2(conf, args);
-//        stopTime = System.currentTimeMillis();
-//        System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
-//
-//        startTime = System.currentTimeMillis();
-//        Job3(args);
-//        stopTime = System.currentTimeMillis();
-//        System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+        Configuration conf = new Configuration();
+        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+        if (otherArgs.length != 3) {
+            System.err.println("Usage: <input file> <output> <lines per mapper>");
+            System.exit(1);
+        }
+
+        System.out.println("<input> = " + otherArgs[0]);
+        System.out.println("<output> = " + otherArgs[1]);
+        System.out.println("<lines per mapper> = " + otherArgs[2]);
+
+        N_LINES = Integer.parseInt(args[2]);
+        startTime = System.currentTimeMillis();
+        Job1(conf, args);
+        stopTime = System.currentTimeMillis();
+        System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+
+        startTime = System.currentTimeMillis();
+        Job2(conf, args);
+        stopTime = System.currentTimeMillis();
+        System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+
+        startTime = System.currentTimeMillis();
+        Job3(args);
+        stopTime = System.currentTimeMillis();
+        System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         //count false positive rate
-        Path path = new Path(args[1] + "_3");
-        Double fp = BloomFilterUtility.countFalsePositiveRate(path);
-        System.out.println("fp: "+fp.toString());
+        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/part-r-00000");
+        HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
+        System.out.println("fp_rates:");
+        System.out.println(Arrays.asList(fp_rates));
         System.exit(0);
     }
 

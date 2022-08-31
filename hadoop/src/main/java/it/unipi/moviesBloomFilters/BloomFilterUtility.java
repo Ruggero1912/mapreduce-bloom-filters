@@ -7,6 +7,8 @@ import java.io.BufferedReader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
@@ -56,37 +58,43 @@ public class BloomFilterUtility {
     }
 
 
-    public static Double countFalsePositiveRate(Path path) {
-        Double fp = 0.0;
+    public static HashMap<Integer, Double> countFalsePositiveRate(Path path) {
         try {
-
             FileSystem fs = FileSystem.get(new Configuration());
             FileStatus[] status = fs.listStatus(path);
 
             for (FileStatus fileStatus : status) {
                 if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
-                    int rating;
+                    Integer rating;
                     String finalCounts;
+                    Double fpr = 0.0;
+                    // fp_rates(key = rating, value = fpr of the relative bloom filter)
+                    HashMap<Integer, Double> fp_rates= new HashMap<Integer, Double>();
+
                     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
 
                     for (Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
                         String[] tokens = it.next().split("\t");
 
-                        //line = (rating: IntWritable, finalCounts: Text(String FP+FN+TP+TN))
+                        //line = (rating: IntWritable, finalCounts: Text(String FP,FN,TP,TN))
                         rating = Integer.parseInt(tokens[0]);
                         finalCounts = tokens[1];
-                        System.out.println("finalCounts"+finalCounts);
+                        System.out.println("finalCounts: "+finalCounts);
 
-
+                        String counts[] = finalCounts.split(",");
+                        Double fp = Double.parseDouble(counts[0]);
+                        Double tn = Double.parseDouble(counts[2]);
+                        fpr = fp/(fp+tn);
+                        fp_rates.put(rating, fpr);
                     }
+
+                    return fp_rates;
                 }
             }
+        }
+        catch (Exception e) { e.printStackTrace(); }
 
-
-
-        } catch (Exception e) { e.printStackTrace(); }
-
-        return fp;
+        return null;
 
     }
 
