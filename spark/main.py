@@ -1,3 +1,4 @@
+import string
 from tabnanny import verbose
 from unicodedata import combining
 from pyspark import SparkConf, SparkContext, RDD
@@ -26,15 +27,23 @@ def getM(n, p) -> int:
 def getK(m, n) -> int:
     return int((m/n) * math.log(2))
 
+def getHash (movie_id, m, i):
+    #tmp = [f'{string.hexdigits[(char >> 4) & 0xf]}{string.hexdigits[char & 0xf]}' for char in mmh3.hash_bytes(movie_id, i)]
+    #return abs(int(''.join(tmp), base=16)) % m
+
+    #tmp = [((char >> 4) & 0xf) | ((char << 4) & 0xf0) for char in mmh3.hash_bytes(movie_id, i)]
+    #return int.from_bytes(tmp, '')
+    return abs(mmh3.hash(movie_id, i)) % m
+
 def initializeBloomFilter(movie_id, m, k) -> bitarray:
-    bs = bitarray(m)
+    bs = bitarray('0') * m
     for i in range(k):
-        bs[ abs( mmh3.hash(movie_id, i) ) % m ] = True
+        bs[ getHash(movie_id, m, i) ] = True
     return bs
 
 def addToFilter(bloom_filter, movie_id, m, k) -> bitarray:
     for i in range(k):
-        bloom_filter[ abs( mmh3.hash(movie_id, i) ) % m ] = True
+        bloom_filter[ getHash(movie_id, m, i) ] = True
     return bloom_filter
 
 def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
@@ -45,7 +54,7 @@ def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
     #if( bloom_filter.__len__() == 0):
     #    return False
     for i in range(k):
-        if bloom_filter[ abs( mmh3.hash(movie_id, i) ) % m ] == False:
+        if bloom_filter[ getHash(movie_id, m, i) ] == False:
             return False
     return True
 
