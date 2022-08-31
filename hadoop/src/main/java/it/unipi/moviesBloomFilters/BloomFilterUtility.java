@@ -11,17 +11,44 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.StringTokenizer;
+import java.util.stream.IntStream;
 
 
 public class BloomFilterUtility {
-    public static int dataset_size = 1252427;
 
-    public static int getDataset_size(){
-        //10 tuples (IntWritable rating, IntWritable n)
+    public static int getDataset_size(Path path){
+        try {
+            FileSystem fs = FileSystem.get(new Configuration());
+            FileStatus[] status = fs.listStatus(path);
+            int dataset_size =0;
+            int sizes[] = new int[10];
+
+            for (FileStatus fileStatus : status) {
+                if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
+                    Integer rating, n;
+                    int size;
+
+                    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
+                    for (Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
+                        String[] tokens = it.next().split("\t");
+
+                        //line = (rating: IntWritable, n: IntWritable)
+                        rating = Integer.parseInt(tokens[0]);
+                        size = Integer.parseInt(tokens[1]);
+                        sizes[rating-1]=size;
+                    }
+                }
+            }
+            dataset_size = IntStream.of(sizes).sum();
+            return dataset_size;
+        }
+        catch (Exception e) { e.printStackTrace(); }
+
         return 1;
+
     }
 
-    public static double getP(int n){
+    public static double getP(int n, int dataset_size){
         double p = 0;
         float perc=((float)n/dataset_size)*100;
         if(perc<=2){
@@ -62,35 +89,35 @@ public class BloomFilterUtility {
         try {
             FileSystem fs = FileSystem.get(new Configuration());
             FileStatus[] status = fs.listStatus(path);
+            // fp_rates(key = rating, value = fpr of the relative bloom filter)
+            HashMap<Integer, Double> fp_rates= new HashMap<Integer, Double>();
 
             for (FileStatus fileStatus : status) {
                 if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
                     Integer rating;
                     String finalCounts;
                     Double fpr = 0.0;
-                    // fp_rates(key = rating, value = fpr of the relative bloom filter)
-                    HashMap<Integer, Double> fp_rates= new HashMap<Integer, Double>();
 
                     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
-
+                    System.out.println("rating: FP,FN,TP,TN");
                     for (Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
                         String[] tokens = it.next().split("\t");
 
                         //line = (rating: IntWritable, finalCounts: Text(String FP,FN,TP,TN))
                         rating = Integer.parseInt(tokens[0]);
                         finalCounts = tokens[1];
-                        System.out.println("finalCounts: "+finalCounts);
+
+                        System.out.println(rating.toString()+"\t"+finalCounts);
 
                         String counts[] = finalCounts.split(",");
                         Double fp = Double.parseDouble(counts[0]);
-                        Double tn = Double.parseDouble(counts[2]);
+                        Double tn = Double.parseDouble(counts[3]);
                         fpr = fp/(fp+tn);
                         fp_rates.put(rating, fpr);
                     }
-
-                    return fp_rates;
                 }
             }
+            return fp_rates;
         }
         catch (Exception e) { e.printStackTrace(); }
 

@@ -64,8 +64,8 @@ public class Main {
         //count false positive rate
         Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/part-r-00000");
         HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
-        System.out.println("fp_rates:");
-        System.out.println(Arrays.asList(fp_rates));
+        System.out.println("\nFalse positive rates:");
+        fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
         System.exit(0);
     }
 
@@ -127,7 +127,7 @@ public class Main {
         FileStatus[] status = fs.listStatus(pt);
         for (FileStatus fileStatus : status) {
             if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
-                int n, m, k, rating;
+                int n, m, k, dataset_size, rating;
                 double p;
 
                 BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
@@ -139,7 +139,9 @@ public class Main {
 
                     // Computing filter parameters
                     if (n != 0) {
-                        p = BloomFilterUtility.getP(n);
+                        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/part-r-00000");
+                        dataset_size = BloomFilterUtility.getDataset_size(path);
+                        p = BloomFilterUtility.getP(n, dataset_size);
                         m = BloomFilterUtility.getSize(n, p);
                         k = BloomFilterUtility.getNumberHashFunct(m, n);
 
