@@ -8,8 +8,8 @@ import org.apache.hadoop.mapreduce.Mapper;
 import java.io.IOException;
 
 public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritable, BloomFilter> {
-    private final BloomFilter[] bfArray = new BloomFilter[ratings];
     private static final int ratings = 10;
+    private final BloomFilter[] bfArray = new BloomFilter[ratings];
     private final IntWritable key = new IntWritable();
 
     @Override

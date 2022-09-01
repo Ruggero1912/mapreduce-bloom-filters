@@ -1,6 +1,5 @@
 package it.unipi.moviesBloomFilters.job3;
 
-import it.unipi.moviesBloomFilters.IntArrayWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;

@@ -7,7 +7,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.Job;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.IntStream;
@@ -17,7 +16,7 @@ public class BloomFilterUtility {
     public static int datasetSize;
     public static int[] sizes = new int[ratings];
 
-    public static void getDataset_size(Path path){
+    public static void getDatasetSize(Path path){
         try {
             FileSystem fs = FileSystem.get(new Configuration());
             FileStatus[] status = fs.listStatus(path);
@@ -45,13 +44,13 @@ public class BloomFilterUtility {
     public static double getP(int n, int dataset_size){
         double p = 0;
         float perc=((float)n/dataset_size)*100;
-        if(perc<=2){
+        if(perc<=20){
             p=0.1;
         }
-        else if (perc>2 && perc<=15){
+        else if (perc>20 && perc<=60){
             p=0.01;
         }
-        else if (perc>15){
+        else if (perc>60){
             p=0.001;
         }
         return p;
@@ -64,20 +63,6 @@ public class BloomFilterUtility {
     public static int getNumberHashFunct(int size, int n){
         return (int) ((size / n) * Math.log(2));
     }
-
-    public static MovieRow parseRow(String value) {
-        StringTokenizer itr = new StringTokenizer(value, "\t");
-        if(itr.countTokens() != 3)
-            return null;
-
-        String movieID = itr.nextToken();
-        int roundedRating = Math.round(Float.parseFloat(itr.nextToken()));
-        if (roundedRating == 0)
-            return null;
-
-        return new MovieRow(movieID, roundedRating);
-    }
-
 
     public static HashMap<Integer, Double> countFalsePositiveRate(Path path) {
         try {

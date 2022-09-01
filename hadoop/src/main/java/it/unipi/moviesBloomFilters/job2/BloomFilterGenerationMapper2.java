@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class BloomFilterGenerationMapper2 extends Mapper<Object, Text, IntWritable, BloomFilter> {
     private final IntWritable reducerKey = new IntWritable();
-    private BloomFilter reducerValue;
+    private BloomFilter reducerValue = new BloomFilter();
 
     @Override
     public void map(Object key, Text value, Context context) throws NumberFormatException, IOException, InterruptedException {
@@ -31,7 +31,7 @@ public class BloomFilterGenerationMapper2 extends Mapper<Object, Text, IntWritab
         int k = context.getConfiguration().getInt("bf." + (roundedRating - 1) + ".parameter.k", 0);
 
         if (m != 0 && k != 0) {
-            reducerValue = new BloomFilter(m, k);
+            reducerValue.reset(m, k);
             reducerValue.add(tags[0]);
 
             reducerKey.set(roundedRating);

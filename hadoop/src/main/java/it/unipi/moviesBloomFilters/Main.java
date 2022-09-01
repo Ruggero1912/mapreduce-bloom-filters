@@ -7,9 +7,6 @@ import it.unipi.moviesBloomFilters.job1.DatasetCountReducer2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
-import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer2;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
@@ -22,16 +19,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
-
+    private static final String namenodePath = "hdfs://hadoop-namenode:9820/user/hadoop/";
     private static int N_LINES;
     private static long startTime;
     private static long stopTime;
@@ -41,7 +34,7 @@ public class Main {
         Configuration conf = new Configuration();
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length != 4) {
-            System.err.println("Usage: <input file> <output> <lines per mapper> <in-mapper combiner>");
+            System.err.println("Usage: <input file> <output> <lines per mapper> <in-mapper implementation>");
             System.exit(1);
         }
 
@@ -68,7 +61,7 @@ public class Main {
         System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         //count false positive rate
-        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/");
+        Path path = new Path(namenodePath + args[1] + "_3/");
         HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
         System.out.println("\nFalse positive rates:");
         fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
@@ -123,8 +116,8 @@ public class Main {
         } else {
             System.out.println("MAP + COMBINER VERSION");
             job2.setMapperClass(BloomFilterGenerationMapper2.class);
-            job2.setCombinerClass(BloomFilterGenerationReducer2.class);
-            job2.setReducerClass(BloomFilterGenerationReducer2.class);
+            job2.setCombinerClass(BloomFilterGenerationReducer.class);
+            job2.setReducerClass(BloomFilterGenerationReducer.class);
         }
 
         // Mapper's output key-value
@@ -145,8 +138,8 @@ public class Main {
         // Configuration parameters
         job2.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", N_LINES);
 
-        Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/");
-        BloomFilterUtility.getDataset_size(pt);
+        Path pt = new Path(namenodePath + args[1] + "/");
+        BloomFilterUtility.getDatasetSize(pt);
         BloomFilterUtility.setConfigurationParams(job2);
 
         Boolean countSuccess2 = job2.waitForCompletion(true);
@@ -172,7 +165,7 @@ public class Main {
         job3.setOutputKeyClass(IntWritable.class);
         job3.setOutputValueClass(Text.class);
 
-        String filename = "hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_2/part-r-00000";
+        String filename = namenodePath + args[1] + "_2/part-r-00000";
         job3.addCacheFile(new Path(filename).toUri());
 
         FileOutputFormat.setOutputPath(job3, new Path(args[1] + "_3"));
