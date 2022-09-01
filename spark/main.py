@@ -1,6 +1,3 @@
-import string
-from tabnanny import verbose
-from unicodedata import combining
 from pyspark import SparkConf, SparkContext, RDD
 import time
 import math
@@ -36,7 +33,8 @@ def getHash (movie_id, m, i):
     return abs(mmh3.hash(movie_id, i)) % m
 
 def initializeBloomFilter(movie_id, m, k) -> bitarray:
-    bs = bitarray('0') * m
+    bs = bitarray(m)
+    bs.setall(0)
     for i in range(k):
         bs[ getHash(movie_id, m, i) ] = True
     return bs
@@ -65,7 +63,44 @@ def job1(ratings : RDD) -> dict:
     """
     return ratings.countByKey()
 
-def job2(ratingsKKV: RDD, M : list, K : list) -> RDD:
+def job2_base(ratings : RDD, M : list, K : list) -> list:
+    """
+    classic map reduce approach which introduces a lot of overhead for the transmission of the bloom filters between each step
+    """
+    def map(in_key : int , movie_id : str) -> tuple:
+        key = int(key)
+        assert( key >= 1 and key <= 10) , f"the input key is not in range(1,10) | input value: {in_key}"
+        return ( key, initializeBloomFilter(movie_id, M[key - 1], K[key - 1]) )
+
+    def reduce(bf1 : bitarray, bf2 : bitarray) -> bitarray:
+        return bf1.__or__(bf2)
+
+    ratings.map(map).reduceByKey(reduce).collect()
+
+
+def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
+    """
+    alternative implementation of the bloom filters generation in Spark for performance comparison
+    it exploits RDD method groupByKey() that tends to be inefficient on keys with high numerosity, since
+    every row for that is key processed by one single Spark executor
+    - return list<tuple<roundedRating : int, bloom_filter : bitarray> bloom_filters
+    - inside ratings it expects to find a RDD in which each tuple is in the form <rounded_rating : int, movie_id : str>
+    """ 
+    def fun(tuple : tuple) -> tuple:
+        """
+        the input tuple is expected to be in the form <key : int, list_of_movies : Iterable(str) > 
+        """
+        in_key, list_of_movies = tuple
+        key = int(in_key)
+        assert (key >= 1 and key <= 10 ) , f"the input key is not in range(1,10) | input value: {in_key}"
+        bs = bitarray(M[key - 1])
+        bs.setall(0)
+        for movie_id in list_of_movies:
+            bs = addToFilter(bs, movie_id, M[key - 1], K[key - 1])
+        return (key, bs)
+    return ratings.groupByKey().map(fun).collect()
+
+def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
     """
     creates and sets the bits of a bloom filter for each rating level
     - input list M: the number of bits for each bloom filter
@@ -93,7 +128,7 @@ def job2(ratingsKKV: RDD, M : list, K : list) -> RDD:
     # (roundedRating, (roundedRating, filmID ) )    i.e. : (6, (6, 'tt0000001') )
     bitsets = ratingsKKV.aggregateByKey(zeroValue=bitarray(), seqFunc=seqFunc, combFunc=combFunc)
 
-    return bitsets
+    return bitsets.collect()
     
     """
     Aggregate the values of each key, using given combine functions and a neutral "zero value". This function can return a different result type, U, than the type of the values in this RDD, V. Thus, we need one operation for merging a V into a U and one operation for merging two U's, The former operation is used for merging values within a partition, and the latter is used for merging values between partitions. To avoid memory allocation, both of these functions are allowed to modify and return their first argument instead of creating a new U.
@@ -207,10 +242,33 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
     """
     pass
 
+JOB_2_BASE = "base"
+JOB_2_GROUP_BY_KEY = "group_by_key"
+JOB_2_AGGREGATE_BY_KEY = "aggregate_by_key"
 
-def main(input_file_path="data.tsv", verbose=False):
+JOB_2_DEFAULT = JOB_2_AGGREGATE_BY_KEY
 
-    conf = SparkConf().setMaster("local").setAppName("Film Reviews bloom filters")
+JOB_2_TYPES = {
+    JOB_2_BASE              : job2_base, 
+    JOB_2_AGGREGATE_BY_KEY  : job2_aggregateByKey, 
+    JOB_2_GROUP_BY_KEY      : job2_groupByKey
+    }
+
+import types
+
+
+def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wait_to_close=0):
+
+    if job2_type not in JOB_2_TYPES.keys():
+        print(f"the specified job2 type '{job2_type}' was not recognised, allowed options: ", JOB_2_TYPES.keys(), f"\nGoing to use default: {JOB_2_DEFAULT}")
+        job2_type = JOB_2_DEFAULT
+
+    job2 = JOB_2_TYPES[job2_type]
+
+    assert isinstance(job2, types.FunctionType)
+
+    master_type = "yarn"   # "local" "yarn"
+    conf = SparkConf().setMaster(master_type).setAppName(f"MRBF-deploy {master_type}-job2type {job2_type}-verbose {verbose}")
     sc = SparkContext(conf=conf)
 
     lines = sc.textFile(input_file_path)    #automatically splits the file on '\n'
@@ -245,8 +303,12 @@ def main(input_file_path="data.tsv", verbose=False):
     print(f"calculated values for \nP: {P}\n\nM: {M}\n\nK: {K}\n\n")
     start_time = time.time()
     ratingsKKV = ratings.map(lambda x: (x[0], (x[0], x[1])))
-    bitsets = job2(ratingsKKV, M, K)
-    tmp = bitsets.collect()
+    print(f"Going to start job2 execution... Specified kind: ", job2_type)
+    if job2_type == JOB_2_AGGREGATE_BY_KEY:
+        tmp = job2(ratingsKKV, M, K)
+    else:
+        tmp = job2(ratings, M, K)
+
     end_time = time.time()
     print(f"job2 finished - elapsed time: {round(end_time - start_time, 3)} seconds")
     if verbose:
@@ -271,14 +333,44 @@ def main(input_file_path="data.tsv", verbose=False):
         print(f" {el} ", end="")
     print()
 
+    if(wait_to_close > 0):
+        print(f"going to sleep for {wait_to_close} seconds before closing Spark Context")
+        from time import sleep
+        sleep(wait_to_close)
 
-import sys
+    print("Shutting down Spark... ")
+    sc.stop()
+
+
+import sys, os
 
 if __name__ == "__main__":
+    
+    print("usage: main.py <input file path> <opt:job_2_type:str> <opt:verbose:bool> <opt:wait x seconds before closing:int>")
+
+    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
+
     input_file_name = "data.tsv"
     if sys.argv[1]:
         input_file_name = sys.argv[1]
+    
     verbose = False
-    if len(sys.argv) > 2 and sys.argv[2]:
-        verbose = True
-    main(input_file_path=input_file_name, verbose=verbose)
+    wait_to_close = 0
+    job2_type = JOB_2_DEFAULT
+
+    if len(sys.argv) > 2:
+        job2_type = sys.argv[2]
+        print(f"specified job2 type : {job2_type}")
+        if job2_type not in JOB_2_TYPES:
+            print(f"the specified job2 type '{job2_type}' was not recognised")
+            print("allowed options: ", JOB_2_TYPES.keys())
+            exit(0)
+
+    if len(sys.argv) > 3:
+        verbose = not ( str.lower(sys.argv[3]) in ["0", "false", ""] )
+
+    if len(sys.argv) > 4 and sys.argv[4]:
+        wait_to_close = int(sys.argv[4])
+
+    main(input_file_path=input_file_name, verbose=verbose,
+         job2_type=job2_type, wait_to_close=wait_to_close)
