@@ -348,7 +348,6 @@ if __name__ == "__main__":
     
     print("usage: main.py <input file path> <opt:job_2_type:str> <opt:verbose:bool> <opt:wait x seconds before closing:int>")
 
-    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
 
     input_file_name = "data.tsv"
     if sys.argv[1]:
