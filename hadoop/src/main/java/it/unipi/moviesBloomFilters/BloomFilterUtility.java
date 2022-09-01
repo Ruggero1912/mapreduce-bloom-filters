@@ -92,7 +92,7 @@ public class BloomFilterUtility {
                     String finalCounts;
                     double fpr;
 
-                    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(path)));
+                    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
                     System.out.println("rating: FP,FN,TP,TN");
                     for (Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
                         String[] tokens = it.next().split("\t");
@@ -119,7 +119,7 @@ public class BloomFilterUtility {
 
     }
 
-    public static void setConfigurationParams(Job job) throws IOException {
+    public static void setConfigurationParams(Job job) {
         // Setting configuration parameters for job2
         int m, k, i = 0;
         double p;

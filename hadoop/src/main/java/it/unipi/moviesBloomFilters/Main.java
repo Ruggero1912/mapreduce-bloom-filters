@@ -68,10 +68,11 @@ public class Main {
         System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         //count false positive rate
-        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/part-r-00000");
+        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/");
         HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
         System.out.println("\nFalse positive rates:");
         fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
+
         System.exit(0);
     }
 
