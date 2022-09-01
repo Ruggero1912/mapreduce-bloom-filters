@@ -1,9 +1,13 @@
 package it.unipi.moviesBloomFilters;
 
 import it.unipi.moviesBloomFilters.job1.DatasetCountInMapperCombiner;
+import it.unipi.moviesBloomFilters.job1.DatasetCountMapper2;
 import it.unipi.moviesBloomFilters.job1.DatasetCountReducer;
+import it.unipi.moviesBloomFilters.job1.DatasetCountReducer2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
+import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
+import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer2;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
@@ -34,20 +38,23 @@ public class Main {
 
         Configuration conf = new Configuration();
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-        if (otherArgs.length != 3) {
-            System.err.println("Usage: <input file> <output> <lines per mapper>");
+        if (otherArgs.length != 4) {
+            System.err.println("Usage: <input file> <output> <lines per mapper> <in-mapper combiner>");
             System.exit(1);
         }
 
         System.out.println("<input> = " + otherArgs[0]);
         System.out.println("<output> = " + otherArgs[1]);
         System.out.println("<lines per mapper> = " + otherArgs[2]);
+        System.out.println("<in-mapper implementation> = " + Boolean.parseBoolean(otherArgs[3]));
 
         N_LINES = Integer.parseInt(args[2]);
+
         startTime = System.currentTimeMillis();
         Job1(conf, args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
+
 
         startTime = System.currentTimeMillis();
         Job2(conf, args);
@@ -55,7 +62,7 @@ public class Main {
         System.out.println("Execution time JOB2:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
         startTime = System.currentTimeMillis();
-        Job3(args);
+        Job3(conf, args);
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
@@ -65,14 +72,20 @@ public class Main {
 
     private static void Job1(Configuration conf, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
 
-        Job job1 = Job.getInstance(conf, "counter of films per rating");
-        job1.setInputFormatClass(NLineInputFormat.class);
-        NLineInputFormat.addInputPath(job1, new Path(args[0]));
+        Job job1 = Job.getInstance(conf, "Counter of films per rating");
         job1.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", (N_LINES));
-
         job1.setJarByClass(Main.class);
-        job1.setMapperClass(DatasetCountInMapperCombiner.class);
-        job1.setReducerClass(DatasetCountReducer.class);
+
+        if (Boolean.parseBoolean(args[3])) {
+            System.out.println("IN-MAPPER COMBINER VERSION");
+            job1.setMapperClass(DatasetCountInMapperCombiner.class);
+            job1.setReducerClass(DatasetCountReducer.class);
+        } else {
+            System.out.println("MAP + COMBINER VERSION");
+            job1.setMapperClass(DatasetCountMapper2.class);
+            job1.setCombinerClass(DatasetCountReducer2.class);
+            job1.setReducerClass(DatasetCountReducer2.class);
+        }
 
         job1.setMapOutputKeyClass(IntWritable.class);
         job1.setMapOutputValueClass(IntWritable.class);
@@ -80,7 +93,9 @@ public class Main {
         job1.setOutputKeyClass(IntWritable.class);
         job1.setOutputValueClass(IntWritable.class);
 
+        NLineInputFormat.addInputPath(job1, new Path(args[0]));
         FileOutputFormat.setOutputPath(job1, new Path(args[1]));
+        job1.setInputFormatClass(NLineInputFormat.class);
 
         Boolean countSuccess1 = job1.waitForCompletion(true);
         if(!countSuccess1) {
@@ -94,8 +109,16 @@ public class Main {
         job2.setJarByClass(Main.class);
 
         // Set mapper/reducer
-        job2.setMapperClass(BloomFilterGenerationMapper.class);
-        job2.setReducerClass(BloomFilterGenerationReducer.class);
+        if (Boolean.parseBoolean(args[3])) {
+            System.out.println("IN-MAPPER COMBINER VERSION");
+            job2.setMapperClass(BloomFilterGenerationMapper.class);
+            job2.setReducerClass(BloomFilterGenerationReducer.class);
+        } else {
+            System.out.println("MAP + COMBINER VERSION");
+            job2.setMapperClass(BloomFilterGenerationMapper2.class);
+            job2.setCombinerClass(BloomFilterGenerationReducer2.class);
+            job2.setReducerClass(BloomFilterGenerationReducer2.class);
+        }
 
         // Mapper's output key-value
         job2.setMapOutputKeyClass(IntWritable.class);
@@ -124,6 +147,7 @@ public class Main {
                 double p;
 
                 BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
+                int i = 1;
                 for(Iterator<String> it = br.lines().iterator(); it.hasNext();) {
                     String[] tokens = it.next().split("\t");
 
@@ -136,10 +160,13 @@ public class Main {
                         m = BloomFilterUtility.getSize(n, p);
                         k = BloomFilterUtility.getNumberHashFunct(m, n);
 
+                        System.out.println(i + " | m=" + m + ", k=" + k + ", p=" + p + ", n=" + n);
+
                         // Passing parameters to the mapper for each filter
                         job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.m", m);
                         job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.k", k);
                     }
+                    i++;
                 }
                 br.close();
                 fs.close();
@@ -152,10 +179,9 @@ public class Main {
         }
     }
 
-    private static void Job3(String[] args) throws IOException, InterruptedException, ClassNotFoundException {
-        Configuration conf3 = new Configuration();
+    private static void Job3(Configuration conf, String[] args) throws IOException, InterruptedException, ClassNotFoundException {
 
-        Job job3 = Job.getInstance(conf3, "False Positive Rate Evaluation");
+        Job job3 = Job.getInstance(conf, "False Positive Rate Evaluation");
         job3.setInputFormatClass(NLineInputFormat.class);
         NLineInputFormat.addInputPath(job3, new Path(args[0]));
         job3.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", N_LINES);

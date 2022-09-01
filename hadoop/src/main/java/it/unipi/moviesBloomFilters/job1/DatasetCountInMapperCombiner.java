@@ -1,13 +1,10 @@
 package it.unipi.moviesBloomFilters.job1;
 
-import it.unipi.moviesBloomFilters.BloomFilterUtility;
-import it.unipi.moviesBloomFilters.MovieRow;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
-import java.util.StringTokenizer;
 
 public class DatasetCountInMapperCombiner extends Mapper<Object, Text, IntWritable, IntWritable>{
     private int[] counters;

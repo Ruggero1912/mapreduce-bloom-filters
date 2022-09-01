@@ -3,7 +3,7 @@ package it.unipi.moviesBloomFilters;
 import java.util.StringTokenizer;
 
 public class BloomFilterUtility {
-    public static int dataset_size = 1252427;
+    public static int dataset_size = 1256807;
 
     public static double getP(int n){
         double p = 0;
