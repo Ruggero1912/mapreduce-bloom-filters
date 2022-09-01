@@ -25,6 +25,8 @@ import org.apache.hadoop.util.GenericOptionsParser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
@@ -55,7 +57,6 @@ public class Main {
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB1:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
-
         startTime = System.currentTimeMillis();
         Job2(conf, args);
         stopTime = System.currentTimeMillis();
@@ -66,6 +67,11 @@ public class Main {
         stopTime = System.currentTimeMillis();
         System.out.println("Execution time JOB3:" + TimeUnit.MILLISECONDS.toSeconds(stopTime - startTime)+ "sec");
 
+        //count false positive rate
+        Path path = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "_3/part-r-00000");
+        HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
+        System.out.println("\nFalse positive rates:");
+        fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
         System.exit(0);
     }
 
@@ -139,39 +145,8 @@ public class Main {
         job2.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", N_LINES);
 
         Path pt = new Path("hdfs://hadoop-namenode:9820/user/hadoop/" + args[1] + "/");
-        FileSystem fs = FileSystem.get(conf);
-        FileStatus[] status = fs.listStatus(pt);
-        for (FileStatus fileStatus : status) {
-            if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
-                int n, m, k, rating;
-                double p;
-
-                BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
-                int i = 1;
-                for(Iterator<String> it = br.lines().iterator(); it.hasNext();) {
-                    String[] tokens = it.next().split("\t");
-
-                    rating = Integer.parseInt(tokens[0]);
-                    n = Integer.parseInt(tokens[1]);
-
-                    // Computing filter parameters
-                    if (n != 0) {
-                        p = BloomFilterUtility.getP(n);
-                        m = BloomFilterUtility.getSize(n, p);
-                        k = BloomFilterUtility.getNumberHashFunct(m, n);
-
-                        System.out.println(i + " | m=" + m + ", k=" + k + ", p=" + p + ", n=" + n);
-
-                        // Passing parameters to the mapper for each filter
-                        job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.m", m);
-                        job2.getConfiguration().setInt("bf." + (rating - 1) + ".parameter.k", k);
-                    }
-                    i++;
-                }
-                br.close();
-                fs.close();
-            }
-        }
+        BloomFilterUtility.getDataset_size(pt);
+        BloomFilterUtility.setConfigurationParams(job2);
 
         Boolean countSuccess2 = job2.waitForCompletion(true);
         if(!countSuccess2) {
