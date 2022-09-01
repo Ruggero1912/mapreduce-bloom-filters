@@ -1,17 +1,13 @@
 package it.unipi.moviesBloomFilters.job3;
 
 import it.unipi.moviesBloomFilters.BloomFilter;
-import it.unipi.moviesBloomFilters.IntArrayWritable;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Mapper;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.StringTokenizer;
 
 public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritable, Text> {
 

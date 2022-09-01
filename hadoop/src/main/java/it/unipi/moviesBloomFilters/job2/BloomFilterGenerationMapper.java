@@ -1,8 +1,6 @@
 package it.unipi.moviesBloomFilters.job2;
 
 import it.unipi.moviesBloomFilters.BloomFilter;
-import it.unipi.moviesBloomFilters.BloomFilterUtility;
-import it.unipi.moviesBloomFilters.MovieRow;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -10,8 +8,8 @@ import org.apache.hadoop.mapreduce.Mapper;
 import java.io.IOException;
 
 public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritable, BloomFilter> {
-    private final BloomFilter[] bfArray = new BloomFilter[ratings];
     private static final int ratings = 10;
+    private final BloomFilter[] bfArray = new BloomFilter[ratings];
     private final IntWritable key = new IntWritable();
 
     @Override
@@ -33,9 +31,7 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
         if(record == null || record.length() == 0)
             return;
 
-        //MovieRow row = BloomFilterUtility.parseRow(record);
         String[] tags = value.toString().split("\t");
-        //StringTokenizer itr = new StringTokenizer(value, "\t");
         if(tags.length != 3)
             return;
 

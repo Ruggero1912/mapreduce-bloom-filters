@@ -146,4 +146,14 @@ public class BloomFilter implements Writable, Serializable {
     public boolean isInitialized() {
         return this.k > 0 && this.m > 0;
     }
+
+    public void reset(int m, int k) {
+        if (this.m == m) {
+            this.bits.clear();
+        } else {
+            this.m = m;
+            this.k = k;
+            this.bits = new BitSet(m);
+        }
+    }
 }
