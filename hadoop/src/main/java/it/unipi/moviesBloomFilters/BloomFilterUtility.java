@@ -33,26 +33,29 @@ public class BloomFilterUtility {
                         size = Integer.parseInt(tokens[1]);
                         sizes[rating-1] = size;
                     }
+                    br.close();
                 }
             }
-
+            fs.close();
             datasetSize = IntStream.of(sizes).sum();
         }
         catch (Exception e) { e.printStackTrace(); }
     }
 
     public static double getP(int n, int dataset_size){
-        double p = 0;
+        double p = 0.1;
+
+        /*
         float perc=((float)n/dataset_size)*100;
-        if(perc<=20){
+        if(perc<=10){
             p=0.1;
         }
-        else if (perc>20 && perc<=60){
+        else if (perc<=20){
             p=0.01;
         }
-        else if (perc>60){
+        else {
             p=0.001;
-        }
+        }*/
         return p;
     }
 
@@ -94,8 +97,10 @@ public class BloomFilterUtility {
                         fpr = fp/(fp+tn);
                         fp_rates.put(rating, fpr);
                     }
+                    br.close();
                 }
             }
+            fs.close();
             return fp_rates;
         }
         catch (Exception e) { e.printStackTrace(); }
