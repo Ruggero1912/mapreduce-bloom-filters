@@ -5,6 +5,7 @@ from bitarray import bitarray
 import mmh3
 
 MASTER_NODE_IP = "172.16.4.188"
+TOTAL_NUM_EXECUTORS = 12
 
 def getP(n, total_number) -> float:
     """
@@ -279,7 +280,11 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         return (round(float( splitted[1] ) + 0.0001), splitted[0])
     ratings = lines.map(row_parser)
     #ratings = lines.map(lambda row : (round( row.split('\t')[1] ), row.split('\t')[0]))
+    print(f"\n\n\tthe input dataset was originally split in {ratings.getNumPartitions()} \n\n")
 
+    ratings = ratings.repartition(TOTAL_NUM_EXECUTORS)
+
+    print(f"\n\n\tnow the input dataset is split in {ratings.getNumPartitions()} \n\n")
     #now each row is in the form (roundedRating, filmID)    i.e. : (6, 'tt0000001')
     start_time = time.time()
     N = job1(ratings)
