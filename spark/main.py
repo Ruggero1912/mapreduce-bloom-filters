@@ -67,15 +67,16 @@ def job2_base(ratings : RDD, M : list, K : list) -> list:
     """
     classic map reduce approach which introduces a lot of overhead for the transmission of the bloom filters between each step
     """
-    def map(in_key : int , movie_id : str) -> tuple:
-        key = int(key)
+    def map(tup : tuple) -> tuple:
+        (in_key, movie_id) = tup
+        key = int(in_key)
         assert( key >= 1 and key <= 10) , f"the input key is not in range(1,10) | input value: {in_key}"
         return ( key, initializeBloomFilter(movie_id, M[key - 1], K[key - 1]) )
 
     def reduce(bf1 : bitarray, bf2 : bitarray) -> bitarray:
         return bf1.__or__(bf2)
 
-    ratings.map(map).reduceByKey(reduce).collect()
+    return ratings.map(map).reduceByKey(reduce).collect()
 
 
 def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
