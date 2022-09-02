@@ -3,7 +3,6 @@ package it.unipi.moviesBloomFilters;
 import it.unipi.moviesBloomFilters.job1.DatasetCountInMapperCombiner;
 import it.unipi.moviesBloomFilters.job1.DatasetCountMapper2;
 import it.unipi.moviesBloomFilters.job1.DatasetCountReducer;
-import it.unipi.moviesBloomFilters.job1.DatasetCountReducer2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
@@ -79,13 +78,12 @@ public class Main {
         if (Boolean.parseBoolean(args[3])) {
             System.out.println("IN-MAPPER COMBINER VERSION");
             job1.setMapperClass(DatasetCountInMapperCombiner.class);
-            job1.setReducerClass(DatasetCountReducer.class);
         } else {
             System.out.println("MAP + COMBINER VERSION");
             job1.setMapperClass(DatasetCountMapper2.class);
-            job1.setCombinerClass(DatasetCountReducer2.class);
-            job1.setReducerClass(DatasetCountReducer2.class);
+            job1.setCombinerClass(DatasetCountReducer.class);
         }
+        job1.setReducerClass(DatasetCountReducer.class);
 
         job1.setMapOutputKeyClass(IntWritable.class);
         job1.setMapOutputValueClass(IntWritable.class);
@@ -112,13 +110,12 @@ public class Main {
         if (Boolean.parseBoolean(args[3])) {
             System.out.println("IN-MAPPER COMBINER VERSION");
             job2.setMapperClass(BloomFilterGenerationMapper.class);
-            job2.setReducerClass(BloomFilterGenerationReducer.class);
         } else {
             System.out.println("MAP + COMBINER VERSION");
             job2.setMapperClass(BloomFilterGenerationMapper2.class);
             job2.setCombinerClass(BloomFilterGenerationReducer.class);
-            job2.setReducerClass(BloomFilterGenerationReducer.class);
         }
+        job2.setReducerClass(BloomFilterGenerationReducer.class);
 
         // Mapper's output key-value
         job2.setMapOutputKeyClass(IntWritable.class);
