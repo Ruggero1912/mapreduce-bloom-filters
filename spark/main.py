@@ -6,6 +6,7 @@ import mmh3
 
 MASTER_NODE_IP = "172.16.4.188"
 TOTAL_NUM_EXECUTORS = 12
+TOTAL_CORES_PER_EXECUTOR = 4
 
 def getP(n, total_number) -> float:
     """
@@ -270,7 +271,10 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     assert isinstance(job2, types.FunctionType)
 
     master_type = "yarn"   # "local" "yarn"
-    conf = SparkConf().setMaster(master_type).setAppName(f"MRBF-deploy {master_type}-job2type {job2_type}-verbose {verbose}")
+    conf = SparkConf().setMaster(master_type)\
+            .setAppName(f"MRBF|deploy-{master_type}-|job2type-{job2_type}-|verbose-{verbose}-|")\
+            .set("spark.executor.instances",    str(TOTAL_NUM_EXECUTORS)        )\
+            .set("spark.executor.cores",        str(TOTAL_CORES_PER_EXECUTOR)   )  # number of cores on each executor
     sc = SparkContext(conf=conf)
 
     lines = sc.textFile(input_file_path)    #automatically splits the file on '\n'
