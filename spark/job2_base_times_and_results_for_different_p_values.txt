@@ -1,0 +1,127 @@
+---------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 0.1, 15: 0.1, 100: 0.1}
+job2 finished - elapsed time: 22.114 seconds
+job3 finished - elapsed time: 7.41 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  126276  0  2584  1127947
+2 |  127362  0  6752  1122693
+3 |  125069  0  18576  1113162
+4 |  122670  0  45072  1089065
+5 |  116259  0  103731  1036817
+6 |  103472  0  223904  929431
+7 |  88689  0  377578  790540
+8 |  91498  0  349048  816261
+9 |  115408  0  112605  1028794
+10 |  126378  0  16957  1113472
+------------------
+multiple positive results movies:               774845
+counter of evaluated movies:            1256807
+Multiple positive rate: 61.65187%
+Shutting down Spark...
+---------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 0.01, 15: 0.01, 100: 0.01}
+job2 finished - elapsed time: 44.557 seconds
+job3 finished - elapsed time: 8.131 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  12411  0  2584  1241812
+2 |  12853  0  6752  1237202
+3 |  12575  0  18576  1225656
+4 |  12371  0  45072  1199364
+5 |  11749  0  103731  1141327
+6 |  10430  0  223904  1022473
+7 |  8856  0  377578  870373
+8 |  9175  0  349048  898584
+9 |  11510  0  112605  1132692
+10 |  12582  0  16957  1227268
+------------------
+multiple positive results movies:               109907
+counter of evaluated movies:            1256807
+Multiple positive rate: 8.74494%
+Shutting down Spark...
+----------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 0.001, 15: 0.001, 100: 0.001}
+job2 finished - elapsed time: 62.807 seconds
+job3 finished - elapsed time: 8.833 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  1255  0  2584  1252968
+2 |  1280  0  6752  1248775
+3 |  1241  0  18576  1236990
+4 |  1175  0  45072  1210560
+5 |  1169  0  103731  1151907
+6 |  1069  0  223904  1031834
+7 |  901  0  377578  878328
+8 |  922  0  349048  906837
+9 |  1154  0  112605  1143048
+10 |  1214  0  16957  1238636
+------------------
+multiple positive results movies:               11331
+counter of evaluated movies:            1256807
+Multiple positive rate: 0.90157%
+Shutting down Spark...
+---------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 0.0001, 15: 0.0001, 100: 0.0001}
+job2 finished - elapsed time: 88.429 seconds
+job3 finished - elapsed time: 9.261 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  114  0  2584  1254109
+2 |  111  0  6752  1249944
+3 |  133  0  18576  1238098
+4 |  137  0  45072  1211598
+5 |  132  0  103731  1152944
+6 |  96  0  223904  1032807
+7 |  110  0  377578  879119
+8 |  87  0  349048  907672
+9 |  115  0  112605  1144087
+10 |  130  0  16957  1239720
+------------------
+multiple positive results movies:               1165
+counter of evaluated movies:            1256807
+Multiple positive rate: 0.0927%
+Shutting down Spark...
+---------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 1e-05, 15: 1e-05, 100: 1e-05}:
+job2 finished - elapsed time: 115.264 seconds
+job3 finished - elapsed time: 10.355 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  12  0  2584  1254211
+2 |  14  0  6752  1250041
+3 |  18  0  18576  1238213
+4 |  10  0  45072  1211725
+5 |  15  0  103731  1153061
+6 |  2  0  223904  1032901
+7 |  9  0  377578  879220
+8 |  11  0  349048  907748
+9 |  13  0  112605  1144189
+10 |  10  0  16957  1239840
+------------------
+multiple positive results movies:               114
+counter of evaluated movies:            1256807
+Multiple positive rate: 0.00907%
+Shutting down Spark...
+---------------------------------------------------------------------------------------
+MRBF|deploy-yarn-|job2type-base-|verbose-False-|P-{2: 1e-06, 15: 1e-06, 100: 1e-06}:
+job2 finished - elapsed time: 135.987 seconds
+job3 finished - elapsed time: 9.683 seconds
+rating | < FP - FN - TP - TN >
+
+1 |  2  0  2584  1254221
+2 |  0  0  6752  1250055
+3 |  1  0  18576  1238230
+4 |  0  0  45072  1211735
+5 |  2  0  103731  1153074
+6 |  0  0  223904  1032903
+7 |  0  0  377578  879229
+8 |  1  0  349048  907758
+9 |  0  0  112605  1144202
+10 |  2  0  16957  1239848
+------------------
+multiple positive results movies:               8
+counter of evaluated movies:            1256807
+Multiple positive rate: 0.00064%
+Shutting down Spark...
+--------------------------------------------------------------------------------------

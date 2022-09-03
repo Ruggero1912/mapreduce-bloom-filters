@@ -27,17 +27,29 @@ def blue(string):
 def green(string):
     return GREEN_COLOR + string + DEFAULT_COLOR
 
+#this dict must be sorted in ascending order
+P_RANGES = {
+    2  : 0.0001,
+    15 : 0.0001,
+    100: 0.0001,
+}
+
 def getP(n, total_number) -> float:
     """
     returns the false positive rate according to the percentage of occurencies of the current score over the total
     """
     perc = ( n / total_number ) * 100
-    if(perc <= 2):
-        return 0.1
-    elif(perc <= 15):
-        return 0.01
-    else:
-        return 0.01
+    for range_limit, p_value in P_RANGES.items():
+        if perc <= range_limit:
+            return p_value
+    #this should not happen, returns the last item of the dict
+    return P_RANGES.get(P_RANGES.keys()[-1])
+    #if(perc <= 2):
+    #    return 0.00001
+    #elif(perc <= 15):
+    #    return 0.00001
+    #else:
+    #    return 0.00001
 
 def getM(n, p) -> int:
     return int(-(n * math.log(p))/(math.log(2)**2))
@@ -301,7 +313,7 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
 
     master_type = "yarn"   # "local" "yarn"
     conf = SparkConf().setMaster(master_type)\
-            .setAppName(f"MRBF|deploy-{master_type}-|job2type-{job2_type}-|verbose-{verbose}-|")\
+            .setAppName(f"MRBF|deploy-{master_type}-|job2type-{job2_type}-|verbose-{verbose}-|P-{P_RANGES}")\
             .set("spark.executor.instances",    str(TOTAL_NUM_EXECUTORS)        )\
             .set("spark.executor.cores",        str(TOTAL_CORES_PER_EXECUTOR)   )  # number of cores on each executor
     sc = SparkContext(conf=conf)
