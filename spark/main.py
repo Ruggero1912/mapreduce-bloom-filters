@@ -8,6 +8,25 @@ MASTER_NODE_IP = "172.16.4.188"
 TOTAL_NUM_EXECUTORS = 12
 TOTAL_CORES_PER_EXECUTOR = 4
 
+BLACK_COLOR = "\033[90m"
+RED_COLOR = "\033[91m"
+GREEN_COLOR = "\033[92m"
+YELLOW_COLOR = "\033[93m"
+BLUE_COLOR = "\033[94m"
+PURPLE_COLOR = "\033[95m"
+CYAN_COLOR = "\033[96m"
+WHITE_COLOR = "\033[97m"
+DEFAULT_COLOR = WHITE_COLOR
+
+def red(string):
+    return RED_COLOR + string + DEFAULT_COLOR
+
+def blue(string):
+    return BLUE_COLOR + string + DEFAULT_COLOR
+
+def green(string):
+    return GREEN_COLOR + string + DEFAULT_COLOR
+
 def getP(n, total_number) -> float:
     """
     returns the false positive rate according to the percentage of occurencies of the current score over the total
@@ -18,7 +37,7 @@ def getP(n, total_number) -> float:
     elif(perc <= 15):
         return 0.01
     else:
-        return 0.001
+        return 0.01
 
 def getM(n, p) -> int:
     return int(-(n * math.log(p))/(math.log(2)**2))
@@ -196,19 +215,33 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
     FN_OFFSET = 1
     TP_OFFSET = 2
     TN_OFFSET = 3
+    MULTI_POSITIVE_COUNTER_INDEX = 40
+    EVALUATED_COUNTER_INDEX = 41
     # (key, (key, value))
     def seqOp(scores : list, row) -> list:
+        positive_results_counter = 0
+        valid = False
         for index, bloom_filter in enumerate(bitsets):
             if checkInFilter(bloom_filter, row[1][1], M[index], K[index]):
-                if index == (row[1][0] - 1):
+                positive_results_counter += 1
+                if index == (row[1][0] - 1):    #case True Positive
                     scores[ ( index ) * 4 + TP_OFFSET] += 1
-                else:
+                    valid = True
+                else:                           #case False Positive
                     scores[ (index) * 4 + FP_OFFSET] += 1
             else:
-                if index == (row[1][0] - 1):
+                if index == (row[1][0] - 1):    #case False Negative
                     scores[ ( index ) * 4 + FN_OFFSET] += 1
-                else:
+                else:                           #case True Negative
                     scores[( index ) * 4 + TN_OFFSET] += 1
+        assert valid is True, f"the current row {row} was not found inside its bloom filter!"
+        if positive_results_counter > 1:
+            #case in which more than one bloom filter returned positive result 
+            scores[MULTI_POSITIVE_COUNTER_INDEX] += 1
+        #else:
+            #case in which only the right bloom filter returned True
+            #pass
+        scores[EVALUATED_COUNTER_INDEX] += 1
         return scores
     """
     def combOp(scores1 : list, scores2 : list) -> list:
@@ -219,23 +252,19 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
     """
     def combOp(scores1: list, scores2: list) -> list:
 
-        assert len(scores1) == len(scores2) == 40 , f"LANDRY len: {len(scores1)} | content scores1: {scores1}"
+        assert len(scores1) == len(scores2) == 42 , f"LANDRY len: {len(scores1)} | content scores1: {scores1}"
         return [sum(x) for x in zip(scores1, scores2)]
 
-    return ratingsKKV.aggregate(zeroValue=( [0] * 40), seqOp=seqOp, combOp=combOp)
+    return ratingsKKV.aggregate(zeroValue=( [0] * 42), seqOp=seqOp, combOp=combOp)
 
     """
-    zeroValue = [
-            fp1, ... fp10, 
-            fn1, ... fn10,
-            tp1, ... tp10,
-            tn1, ... tn10
-        ]
-    zeroValue = [
+    scores = [
         < FP1 - FN1 - TP1 - TN1 >,
         < FP2 - FN2 - TP2 - TN2 >,
         ...
         < FP10 - FN10 - TP10 - TN10 >,
+    index40:    multiple_positive_results,
+    index41:    evaluated_counter
     ]
     rating = 3
     caso FP:
@@ -284,11 +313,11 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         return (round(float( splitted[1] ) + 0.0001), splitted[0])
     ratings = lines.map(row_parser)
     #ratings = lines.map(lambda row : (round( row.split('\t')[1] ), row.split('\t')[0]))
-    print(f"\n\n\tthe input dataset was originally split in {ratings.getNumPartitions()} \n\n")
+    print(blue(f"\n\n\tthe input dataset was originally split in {ratings.getNumPartitions()} \n\n"))
 
     ratings = ratings.repartition(TOTAL_NUM_EXECUTORS)
 
-    print(f"\n\n\tnow the input dataset is split in {ratings.getNumPartitions()} \n\n")
+    print(blue(f"\n\n\tnow the input dataset is split in {ratings.getNumPartitions()} \n\n"))
     #now each row is in the form (roundedRating, filmID)    i.e. : (6, 'tt0000001')
     start_time = time.time()
     N = job1(ratings)
@@ -308,11 +337,14 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         M[k - 1] = getM(n, P[k - 1 ])
         K[k - 1] = getK(M[k - 1], n)
 
-    print(f"job1 finished - elapsed time: {round(end_time - start_time, 3)} seconds - total number of rows: {total_number} | N for each rating level: {N.items()}")
+    print(green(f"job1 finished - elapsed time: {round(end_time - start_time, 3)} seconds - total number of rows: {total_number} | N for each rating level: {N.items()}"))
 
     print(f"calculated values for \nP: {P}\n\nM: {M}\n\nK: {K}\n\n")
     start_time = time.time()
     ratingsKKV = ratings.map(lambda x: (x[0], (x[0], x[1])))
+
+    print(blue(f"\n\n\tnow the ratingsKKV RDD is split in {ratingsKKV.getNumPartitions()} \n\n"))
+
     print(f"Going to start job2 execution... Specified kind: ", job2_type)
     if job2_type == JOB_2_AGGREGATE_BY_KEY:
         tmp = job2(ratingsKKV, M, K)
@@ -320,7 +352,7 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         tmp = job2(ratings, M, K)
 
     end_time = time.time()
-    print(f"job2 finished - elapsed time: {round(end_time - start_time, 3)} seconds")
+    print(green(f"job2 finished - elapsed time: {round(end_time - start_time, 3)} seconds"))
     if verbose:
         print(f"\nresults: \n{tmp}")
     bloom_filters = [None] * 10
@@ -335,20 +367,28 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     print(f"results type: {type(results)} | Content: {results}")
     scores_list = results
     end_time = time.time()
-    print(f"job3 finished - elapsed time: {round(end_time - start_time, 3)} seconds")
-    print("rating | < FP - FN - TP - TN >")
+    print(green(f"job3 finished - elapsed time: {round(end_time - start_time, 3)} seconds"))
+    print(blue("rating | < FP - FN - TP - TN >"))
     for index, el in enumerate(scores_list):
         if index % 4 == 0:
             print(f"\n{(index // 4) + 1} | ", end="")
         print(f" {el} ", end="")
-    print()
+        if index == 39:
+            print()
+            break
+    print("------------------")
+    MULTI_POSITIVE_COUNTER_INDEX = 40
+    EVALUATED_COUNTER_INDEX = 41
+    print(red(f"multiple positive results movies: \t\t{scores_list[MULTI_POSITIVE_COUNTER_INDEX]}" ))
+    print(f"counter of evaluated movies: \t\t{scores_list[EVALUATED_COUNTER_INDEX]}" )
+    print(blue(f"Multiple positive rate: {round( ( scores_list[MULTI_POSITIVE_COUNTER_INDEX] / scores_list[EVALUATED_COUNTER_INDEX] ) * 100, 5 )}%"))
 
     if(wait_to_close > 0):
-        print(f"going to sleep for {wait_to_close} seconds before closing Spark Context")
+        print(red(f"going to sleep for {wait_to_close} seconds before closing Spark Context"))
         from time import sleep
         sleep(wait_to_close)
 
-    print("Shutting down Spark... ")
+    print(red("Shutting down Spark... "))
     sc.stop()
 
 
