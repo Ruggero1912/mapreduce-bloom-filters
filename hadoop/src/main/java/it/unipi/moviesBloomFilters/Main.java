@@ -6,6 +6,7 @@ import it.unipi.moviesBloomFilters.job1.DatasetCountReducer;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper2;
 import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
+import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer2;
 import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
@@ -103,6 +104,7 @@ public class Main {
 
     public static void Job2(Configuration conf, String[] args) throws IllegalArgumentException, IOException, ClassNotFoundException, InterruptedException {
 
+        conf = new Configuration();
         Job job2 = Job.getInstance(conf, "Bloom Filter Generation");
         job2.setJarByClass(Main.class);
 
@@ -110,16 +112,20 @@ public class Main {
         if (Boolean.parseBoolean(args[3])) {
             System.out.println("IN-MAPPER COMBINER VERSION");
             job2.setMapperClass(BloomFilterGenerationMapper.class);
+            job2.setReducerClass(BloomFilterGenerationReducer.class);
+
+            // Mapper's output key-value (version 1)
+            job2.setMapOutputKeyClass(IntWritable.class);
+            job2.setMapOutputValueClass(BloomFilter.class);
         } else {
             System.out.println("MAP + COMBINER VERSION");
             job2.setMapperClass(BloomFilterGenerationMapper2.class);
-            job2.setCombinerClass(BloomFilterGenerationReducer.class);
-        }
-        job2.setReducerClass(BloomFilterGenerationReducer.class);
+            job2.setReducerClass(BloomFilterGenerationReducer2.class);
 
-        // Mapper's output key-value
-        job2.setMapOutputKeyClass(IntWritable.class);
-        job2.setMapOutputValueClass(BloomFilter.class);
+            // Mapper's output key-value (version 2)
+            job2.setMapOutputKeyClass(IntWritable.class);
+            job2.setMapOutputValueClass(BitPosition.class);
+        }
 
         // Reducer's output key-value
         job2.setOutputKeyClass(IntWritable.class);
