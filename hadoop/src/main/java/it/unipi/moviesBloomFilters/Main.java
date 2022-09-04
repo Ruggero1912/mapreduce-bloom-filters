@@ -71,7 +71,7 @@ public class Main {
 
         double multi_positive_rates = ((double) BloomFilterUtility.counterMultiPositiveResults/
                 (double) BloomFilterUtility.datasetSize)*100;
-        System.out.println("\nMultiple positive rates: "+ String.format("%.2f",multi_positive_rates)+"%");
+        System.out.println("\nMultiple positive rates: "+ String.format("%.4f",multi_positive_rates)+"%");
         System.exit(0);
     }
 
