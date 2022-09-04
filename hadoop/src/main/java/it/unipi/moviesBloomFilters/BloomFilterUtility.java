@@ -14,6 +14,7 @@ import java.util.stream.IntStream;
 public class BloomFilterUtility {
     public static final int ratings = 10;
     public static int datasetSize;
+    public static int counterMultiPositiveResults;
     public static int[] sizes = new int[ratings];
 
     public static void getDatasetSize(Path path){
@@ -78,6 +79,7 @@ public class BloomFilterUtility {
                 if (!fileStatus.getPath().toString().endsWith("_SUCCESS")) {
                     int rating;
                     String finalCounts;
+                    String multiplePositiveResults;
                     double fpr;
 
                     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(fileStatus.getPath())));
@@ -85,17 +87,25 @@ public class BloomFilterUtility {
                     for (Iterator<String> it = br.lines().iterator(); it.hasNext(); ) {
                         String[] tokens = it.next().split("\t");
 
-                        //line = (rating: IntWritable, finalCounts: Text(String FP,FN,TP,TN))
+
                         rating = Integer.parseInt(tokens[0]);
-                        finalCounts = tokens[1];
+                        if (rating<11){
+                            //line = (rating: IntWritable, finalCounts: Text(String FP,FN,TP,TN))
+                            finalCounts = tokens[1];
+                            System.out.println(rating +"\t"+finalCounts);
 
-                        System.out.println(rating +"\t"+finalCounts);
-
-                        String[] counts = finalCounts.split(",");
-                        double fp = Double.parseDouble(counts[0]);
-                        double tn = Double.parseDouble(counts[3]);
-                        fpr = fp/(fp+tn);
-                        fp_rates.put(rating, fpr);
+                            String[] counts = finalCounts.split(",");
+                            double fp = Double.parseDouble(counts[0]);
+                            double tn = Double.parseDouble(counts[3]);
+                            fpr = fp/(fp+tn);
+                            fp_rates.put(rating, fpr);
+                        }
+                        else if (rating==11){
+                            //line = (11: (counterMultiPositiveResults, numberOfMoviesEvaluated))
+                            multiplePositiveResults = tokens[1];
+                            String[] counts = multiplePositiveResults.split(",");
+                            counterMultiPositiveResults = Integer.parseInt(counts[0]);
+                        }
                     }
                     br.close();
                 }

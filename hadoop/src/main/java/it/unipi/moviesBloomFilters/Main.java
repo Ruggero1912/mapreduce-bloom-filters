@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
+
 public class Main {
     private static final String namenodePath = "hdfs://hadoop-namenode:9820/user/hadoop/";
     private static int N_LINES;
@@ -65,7 +66,12 @@ public class Main {
         HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
         System.out.println("\nFalse positive rates:");
         fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
+        System.out.println("\nDataset size:" + BloomFilterUtility.datasetSize);
+        System.out.println("\nTotal number of multi-positive results:" + BloomFilterUtility.counterMultiPositiveResults);
 
+        double multi_positive_rates = ((double) BloomFilterUtility.counterMultiPositiveResults/
+                (double) BloomFilterUtility.datasetSize)*100;
+        System.out.println("\nMultiple positive rates: "+ String.format("%.2f",multi_positive_rates)+"%");
         System.exit(0);
     }
 

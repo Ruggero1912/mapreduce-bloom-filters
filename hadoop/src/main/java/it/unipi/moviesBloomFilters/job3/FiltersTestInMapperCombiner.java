@@ -19,6 +19,7 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
     private int[] counterFN = new int[N_FILTERS];
     private int[] counterTP = new int[N_FILTERS];
     private int[] counterTN = new int[N_FILTERS];
+    private int counterMultiPositiveResults = 0;
     private final IntWritable key = new IntWritable();
     private final Text value = new Text();
 
@@ -65,23 +66,38 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
             return;
 
         int i = 1;
-        for (BloomFilter bloomFilter:
-             bloomFilters) {
+        int positive_result_counter=0;
+        Boolean valid=false;
+        try {
+            for (BloomFilter bloomFilter :
+                    bloomFilters) {
 
-            if (bloomFilter != null && bloomFilter.isInitialized()){
-                if(bloomFilter.check(tags[0])){
-                    if (i == roundedRating)
-                        counterTP[i-1] += 1;
-                    else
-                        counterFP[i-1] += 1;
-                } else{
-                    if (i != roundedRating)
-                        counterTN[i-1] += 1;
-                    else
-                        counterFN[i-1] += 1;
+                if (bloomFilter != null && bloomFilter.isInitialized()) {
+                    if (bloomFilter.check(tags[0])) {
+                        positive_result_counter += 1;
+                        if (i == roundedRating) {
+                            counterTP[i - 1] += 1;
+                            valid = true;
+                        } else
+                            counterFP[i - 1] += 1;
+                    } else {
+                        if (i != roundedRating)
+                            counterTN[i - 1] += 1;
+                        else
+                            counterFN[i - 1] += 1;
+                    }
                 }
+                i += 1;
             }
-            i += 1;
+            if (valid.equals(false)){
+                throw new Exception("the current row ("+record+") was not found inside its bloom filter!");
+            }
+
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        if(positive_result_counter>1){
+            this.counterMultiPositiveResults +=1;
         }
     }
 
@@ -96,7 +112,11 @@ public class FiltersTestInMapperCombiner extends Mapper<Object, Text, IntWritabl
             //System.out.println("Chiave: " + (i+1) + " stats: " + value);
 
             key.set(i+1);
-            ctx.write(  key, value);
+            ctx.write(key, value);
         }
+        int i=N_FILTERS;
+        value.set( String.valueOf(counterMultiPositiveResults));
+        key.set(i+1);
+        ctx.write(key, value);
     }
 }
