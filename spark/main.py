@@ -3,10 +3,13 @@ import time
 import math
 from bitarray import bitarray
 import mmh3
+import pandas as pd
 
 MASTER_NODE_IP = "172.16.4.188"
 TOTAL_NUM_EXECUTORS = 12
 TOTAL_CORES_PER_EXECUTOR = 4
+
+CSV_FILE_NAME = "spark_results.csv"
 
 BLACK_COLOR = "\033[90m"
 RED_COLOR = "\033[91m"
@@ -344,7 +347,7 @@ JOB_2_TYPES = {
 import types
 
 
-def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wait_to_close=0):
+def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wait_to_close=0, STORE_RESULTS=False):
 
     if job2_type not in JOB_2_TYPES.keys():
         print(f"the specified job2 type '{job2_type}' was not recognised, allowed options: ", JOB_2_TYPES.keys(), f"\nGoing to use default: {JOB_2_DEFAULT}")
@@ -453,12 +456,51 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     print(blue(f"job2 time: {job2_time_seconds} seconds"))
     print(blue(f"job3 time: {job3_time_seconds} seconds"))
 
+    if STORE_RESULTS:
+        try:
+            df = pd.read_csv(CSV_FILE_NAME, index_col=0)
+        except:
+            df = pd.DataFrame()
+        row = {
+            "P_value" : P_FIXED,
+            "job2 kind" : job2_type,
+            "num_executors" : TOTAL_NUM_EXECUTORS,
+            "num_cores_per_executor": TOTAL_CORES_PER_EXECUTOR,
+            "job1_time" : job1_time_seconds,
+            "job2_time" : job2_time_seconds,
+            "job3_time" : job3_time_seconds,
+            "multipositive_rate": scores_list[MULTI_POSITIVE_COUNTER_INDEX] / scores_list[EVALUATED_COUNTER_INDEX],
+            "multipositive_counter": scores_list[MULTI_POSITIVE_COUNTER_INDEX],
+        }
+        df = df.append(row, ignore_index=True)
+        #df.sort_values(by=keys, axis=1)
+        df.to_csv(CSV_FILE_NAME)
+
+
+def iterate_tests():
+    """
+    basic testing function used to iterate over Spark executions in order 
+    to obtain performance results of different combinations of parameters
+    """
+    for p_value in [0.0000001, 0.00000001]:   # , 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.000001
+        global P_FIXED
+        P_FIXED = p_value
+        for job2_kind in JOB_2_TYPES:
+            if job2_kind == JOB_2_EMIT_INDEXES:
+                continue
+            print(blue(f"Going to start new iteration with P={P_FIXED} and job2kind={job2_kind}"))
+            main("data.tsv", False, job2_kind, 0, STORE_RESULTS=True)
 
 import sys, os
 
 if __name__ == "__main__":
+
+    if "--iterative-tests" in sys.argv:
+        print(red( "Going to iterate over tests... Ignoring the other parameters... This will take time") )
+        iterate_tests()
+        exit(0)
     
-    print("usage: main.py <input file path> <opt:job_2_type:str> <opt:verbose:bool> <opt:wait x seconds before closing:int>")
+    print("usage: main.py <input file path> <opt:job_2_type:str> <opt:verbose:bool> <opt:wait x seconds before closing:int> <opt:--iterative-tests>")
 
 
     input_file_name = "data.tsv"
