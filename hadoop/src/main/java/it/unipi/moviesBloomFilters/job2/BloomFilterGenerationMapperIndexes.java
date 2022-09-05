@@ -1,15 +1,20 @@
 package it.unipi.moviesBloomFilters.job2;
 
-import it.unipi.moviesBloomFilters.BloomFilter;
+import it.unipi.moviesBloomFilters.BitPosition;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.util.hash.MurmurHash;
 
 import java.io.IOException;
 
-public class BloomFilterGenerationMapper2 extends Mapper<Object, Text, IntWritable, BloomFilter> {
+// In this implementation for each record in the dataset the mapper emits (roundedRating, bit positions).
+// Bit positions are the indexes that will be equal to true in the BitSet.
+// In order to emit them efficiently a class called BitPosition has been implemented.
+
+public class BloomFilterGenerationMapperIndexes extends Mapper<Object, Text, IntWritable, BitPosition> {
     private final IntWritable reducerKey = new IntWritable();
-    private BloomFilter reducerValue = new BloomFilter();
+    private BitPosition reducerValue = new BitPosition();
 
     @Override
     public void map(Object key, Text value, Context context) throws NumberFormatException, IOException, InterruptedException {
@@ -31,10 +36,13 @@ public class BloomFilterGenerationMapper2 extends Mapper<Object, Text, IntWritab
         int k = context.getConfiguration().getInt("bf." + (roundedRating - 1) + ".parameter.k", 0);
 
         if (m != 0 && k != 0) {
-            reducerValue.reset(m, k);
-            reducerValue.add(tags[0]);
+            int[] bits = new int[k];
+            for (int i = 0; i < k; i++) {
+                bits[i] = Math.abs(MurmurHash.getInstance().hash(tags[0].getBytes(), i)) % m;
+            }
 
             reducerKey.set(roundedRating);
+            reducerValue.setIndexes(bits);
             context.write(reducerKey, reducerValue);
         }
     }

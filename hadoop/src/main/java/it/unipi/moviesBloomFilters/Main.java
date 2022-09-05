@@ -1,11 +1,8 @@
 package it.unipi.moviesBloomFilters;
 
 import it.unipi.moviesBloomFilters.job1.DatasetCountInMapperCombiner;
-import it.unipi.moviesBloomFilters.job1.DatasetCountMapper2;
 import it.unipi.moviesBloomFilters.job1.DatasetCountReducer;
-import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper;
-import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationMapper2;
-import it.unipi.moviesBloomFilters.job2.BloomFilterGenerationReducer;
+import it.unipi.moviesBloomFilters.job2.*;
 import it.unipi.moviesBloomFilters.job3.FiltersTestInMapperCombiner;
 import it.unipi.moviesBloomFilters.job3.FiltersTestReducer;
 import org.apache.hadoop.fs.Path;
@@ -33,14 +30,14 @@ public class Main {
         Configuration conf = new Configuration();
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length != 4) {
-            System.err.println("Usage: <input file> <output> <lines per mapper> <in-mapper implementation>");
+            System.err.println("Usage: <input file> <output> <lines per mapper> <version>");
             System.exit(1);
         }
 
         System.out.println("<input> = " + otherArgs[0]);
         System.out.println("<output> = " + otherArgs[1]);
         System.out.println("<lines per mapper> = " + otherArgs[2]);
-        System.out.println("<in-mapper implementation> = " + Boolean.parseBoolean(otherArgs[3]));
+        System.out.println("<version> = " + Integer.parseInt(otherArgs[3]));
 
         N_LINES = Integer.parseInt(args[2]);
 
@@ -64,7 +61,12 @@ public class Main {
         HashMap<Integer, Double> fp_rates = BloomFilterUtility.countFalsePositiveRate(path);
         System.out.println("\nFalse positive rates:");
         fp_rates.forEach((key, value) -> System.out.println(key + " " + value));
+        System.out.println("\nDataset size:" + BloomFilterUtility.datasetSize);
+        System.out.println("\nTotal number of multi-positive results:" + BloomFilterUtility.counterMultiPositiveResults);
 
+        double multi_positive_rates = ((double) BloomFilterUtility.counterMultiPositiveResults/
+                (double) BloomFilterUtility.datasetSize)*100;
+        System.out.println("\nMultiple positive rates: "+ String.format("%.4f",multi_positive_rates)+"%");
         System.exit(0);
     }
 
@@ -75,14 +77,7 @@ public class Main {
         job1.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", (N_LINES));
         job1.setJarByClass(Main.class);
 
-        if (Boolean.parseBoolean(args[3])) {
-            System.out.println("IN-MAPPER COMBINER VERSION");
-            job1.setMapperClass(DatasetCountInMapperCombiner.class);
-        } else {
-            System.out.println("MAP + COMBINER VERSION");
-            job1.setMapperClass(DatasetCountMapper2.class);
-            job1.setCombinerClass(DatasetCountReducer.class);
-        }
+        job1.setMapperClass(DatasetCountInMapperCombiner.class);
         job1.setReducerClass(DatasetCountReducer.class);
 
         job1.setMapOutputKeyClass(IntWritable.class);
@@ -107,19 +102,36 @@ public class Main {
         job2.setJarByClass(Main.class);
 
         // Set mapper/reducer
-        if (Boolean.parseBoolean(args[3])) {
-            System.out.println("IN-MAPPER COMBINER VERSION");
-            job2.setMapperClass(BloomFilterGenerationMapper.class);
-        } else {
-            System.out.println("MAP + COMBINER VERSION");
-            job2.setMapperClass(BloomFilterGenerationMapper2.class);
-            job2.setCombinerClass(BloomFilterGenerationReducer.class);
-        }
-        job2.setReducerClass(BloomFilterGenerationReducer.class);
+        int version = Integer.parseInt(args[3]);
+        if (version == 1) {
+            System.out.println("VERSION 1 - IN-MAPPER COMBINER");
+            job2.setMapperClass(BloomFilterGenerationInMapperCombiner.class);
+            job2.setReducerClass(BloomFilterGenerationReducer.class);
 
-        // Mapper's output key-value
-        job2.setMapOutputKeyClass(IntWritable.class);
-        job2.setMapOutputValueClass(BloomFilter.class);
+            // Mapper's output key-value (version 1)
+            job2.setMapOutputKeyClass(IntWritable.class);
+            job2.setMapOutputValueClass(BloomFilter.class);
+        } else if(version == 2) {
+            System.out.println("VERSION 2 - MAPPER INDEXES");
+            System.out.println("MAP OUTPUT TYPE: bloom filter indexes");
+            job2.setMapperClass(BloomFilterGenerationMapperIndexes.class);
+            job2.setMapperClass(BloomFilterGenerationMapperIndexes.class);
+            job2.setReducerClass(BloomFilterGenerationReducerIndexes.class);
+
+            // Mapper's output key-value (version 2)
+            job2.setMapOutputKeyClass(IntWritable.class);
+            job2.setMapOutputValueClass(BitPosition.class);
+        } else {
+            System.out.println("VERSION 3 - MAP + COMBINER");
+            System.out.println("MAP OUTPUT TYPE: bloom filter");
+            job2.setMapperClass(BloomFilterGenerationMapper.class);
+            job2.setCombinerClass(BloomFilterGenerationReducer.class);
+            job2.setReducerClass(BloomFilterGenerationReducer.class);
+
+            // Mapper's output key-value (version 3)
+            job2.setMapOutputKeyClass(IntWritable.class);
+            job2.setMapOutputValueClass(BloomFilter.class);
+        }
 
         // Reducer's output key-value
         job2.setOutputKeyClass(IntWritable.class);
