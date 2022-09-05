@@ -7,26 +7,17 @@ import org.apache.hadoop.mapreduce.Mapper;
 
 import java.io.IOException;
 
+// In this implementation for each record in the dataset the mapper emits (roundedRating, BloomFilter).
+// The reducer is the same of the version 1.
+// This is the most inefficient implementation.
+
 public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritable, BloomFilter> {
-    private static final int ratings = 10;
-    private final BloomFilter[] bfArray = new BloomFilter[ratings];
-    private final IntWritable key = new IntWritable();
+    private final IntWritable reducerKey = new IntWritable();
+    private BloomFilter reducerValue = new BloomFilter();
 
     @Override
-    public void setup(Context context) {
-        int m, k;
+    public void map(Object key, Text value, Context context) throws NumberFormatException, IOException, InterruptedException {
 
-        for (int i = 0; i < ratings; i++) {
-            m = context.getConfiguration().getInt("bf." + i + ".parameter.m", 0);
-            k = context.getConfiguration().getInt("bf." + i + ".parameter.k", 0);
-
-            if (m != 0 && k != 0)
-                bfArray[i] = new BloomFilter( m, k);
-        }
-    }
-
-    @Override
-    public void map(Object key, Text value, Context context) throws NumberFormatException  {
         String record = value.toString();
         if(record == null || record.length() == 0)
             return;
@@ -39,17 +30,16 @@ public class BloomFilterGenerationMapper extends Mapper<Object, Text, IntWritabl
         if (roundedRating == 0)
             return;
 
-        //System.out.println("MovieID " + row.getMovieID() + " | Rounded Rating: " + row.getRoundedRating());
-        bfArray[roundedRating - 1].add(tags[0]);
-    }
+        // Creating one bloom filter per movie
+        int m = context.getConfiguration().getInt("bf." + (roundedRating - 1) + ".parameter.m", 0);
+        int k = context.getConfiguration().getInt("bf." + (roundedRating - 1) + ".parameter.k", 0);
 
-    @Override
-    public void cleanup(Context context) throws IOException, InterruptedException {
-        for (int i = 0; i < ratings; i++)
-            if (bfArray[i] != null && !bfArray[i].getBits().isEmpty()) {
-                //System.out.println("[" + (i + 1) + "] Sending " + bfArray[i].toString());
-                key.set(i + 1);
-                context.write( key, bfArray[i]);
-            }
+        if (m != 0 && k != 0) {
+            reducerValue.reset(m, k);
+            reducerValue.add(tags[0]);
+
+            reducerKey.set(roundedRating);
+            context.write(reducerKey, reducerValue);
+        }
     }
 }

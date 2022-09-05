@@ -23,9 +23,7 @@ public class DatasetCountInMapperCombiner extends Mapper<Object, Text, IntWritab
         if(record == null || record.length() == 0)
             return;
 
-        //MovieRow row = BloomFilterUtility.parseRow(record);
         String[] tags = value.toString().split("\t");
-        //StringTokenizer itr = new StringTokenizer(value, "\t");
         if(tags.length != 3)
             return;
 

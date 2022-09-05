@@ -12,7 +12,7 @@ import java.io.IOException;
 // Bit positions are the indexes that will be equal to true in the BitSet.
 // In order to emit them efficiently a class called BitPosition has been implemented.
 
-public class BloomFilterGenerationMapper2 extends Mapper<Object, Text, IntWritable, BitPosition> {
+public class BloomFilterGenerationMapperIndexes extends Mapper<Object, Text, IntWritable, BitPosition> {
     private final IntWritable reducerKey = new IntWritable();
     private BitPosition reducerValue = new BitPosition();
 

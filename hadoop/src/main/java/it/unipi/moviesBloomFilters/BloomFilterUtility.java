@@ -44,7 +44,7 @@ public class BloomFilterUtility {
     }
 
     public static double getP(int n, int dataset_size){
-        double p = 0.1;
+        double p = 0.00001;
 
         /*
         float perc=((float)n/dataset_size)*100;
