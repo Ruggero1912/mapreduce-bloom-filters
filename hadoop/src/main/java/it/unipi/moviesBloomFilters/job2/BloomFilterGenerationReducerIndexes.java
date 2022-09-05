@@ -24,8 +24,8 @@ public class BloomFilterGenerationReducerIndexes extends Reducer<IntWritable, Bi
 
         BitSet bitSet = new BitSet(m);
         for (BitPosition bitPos: bits) {
-            for (int i = 0; i < bitPos.getPos().length; i++)
-                bitSet.set(bitPos.getPos()[i], true);
+            for (int i = 0; i < bitPos.getIndexes().length; i++)
+                bitSet.set(bitPos.getIndexes()[i], true);
         }
 
         if(!bitSet.isEmpty()) {

@@ -8,30 +8,30 @@ import java.io.IOException;
 import java.io.Serializable;
 
 public class BitPosition implements Writable, Serializable {
-    private int[] pos;
+    private int[] indexes;
 
     public BitPosition() {}
 
     @Override
     public void write(DataOutput dataOutput) throws IOException {
-        dataOutput.writeInt(pos.length);
-        for(int i = 0; i < pos.length; i++)
-            dataOutput.writeInt(pos[i]);
+        dataOutput.writeInt(indexes.length);
+        for(int i = 0; i < indexes.length; i++)
+            dataOutput.writeInt(indexes[i]);
     }
 
     @Override
     public void readFields(DataInput dataInput) throws IOException {
         int len = dataInput.readInt();
-        this.pos = new int[len];
+        this.indexes = new int[len];
         for (int i = 0; i < len; i++)
-            this.pos[i] = dataInput.readInt();
+            this.indexes[i] = dataInput.readInt();
     }
 
-    public int[] getPos() {
-        return pos;
+    public int[] getIndexes() {
+        return indexes;
     }
 
-    public void setPos(int[] pos) {
-        this.pos = pos;
+    public void setIndexes(int[] indexes) {
+        this.indexes = indexes;
     }
 }

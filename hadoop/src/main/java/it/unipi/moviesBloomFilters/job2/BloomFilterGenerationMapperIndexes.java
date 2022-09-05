@@ -42,7 +42,7 @@ public class BloomFilterGenerationMapperIndexes extends Mapper<Object, Text, Int
             }
 
             reducerKey.set(roundedRating);
-            reducerValue.setPos(bits);
+            reducerValue.setIndexes(bits);
             context.write(reducerKey, reducerValue);
         }
     }
