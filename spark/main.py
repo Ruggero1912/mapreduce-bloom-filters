@@ -78,6 +78,12 @@ def initializeBloomFilter(movie_id, m, k) -> bitarray:
         bs[ get_hash_index(movie_id, m, i) ] = True
     return bs
 
+def getIndexesTrueFor(movie_id : str, m, k) -> list:
+    ret = []
+    for i in range(k):
+        ret.append( get_hash_index(movie_id, m, i) )
+    return ret
+
 def addToFilter(bloom_filter, movie_id, m, k) -> bitarray:
     for i in range(k):
         bloom_filter[ get_hash_index(movie_id, m, i) ] = True
@@ -116,6 +122,35 @@ def job2_base(ratings : RDD, M : list, K : list) -> list:
         return bf1.__or__(bf2)
 
     return ratings.map(map).reduceByKey(reduce).collect()
+
+def job2_emit_indexes(ratings : RDD, M : list, K : list) -> list:
+    """
+    map reduce approach 
+    introduces overhead for the transmission of the indexes set to true for each movie
+    """
+    def map(tup: tuple) -> tuple:
+        (in_key, movie_id) = tup
+        key = int(in_key)
+        assert(key >= 1 and key <= 10), f"the input key is not in range(1,10) | input value: {in_key}"
+        return (key, getIndexesTrueFor(movie_id, M[key - 1], K[key - 1]))
+
+    def combine(indexes_list1 : list, indexes_list2 : list) -> list:
+        return indexes_list1 + indexes_list2 # returns list with duplicates (potentially)
+        #return list(set(indexes_list1 + indexes_list2)) # avoid duplicates! but seems too performance impacting
+
+    def reduce(tup : tuple) -> bitarray:
+        (in_key, list_of_indexes) = tup
+        key = int(in_key)
+        assert(key >= 1 and key <= 10), f"the input key is not in range(1,10) | input value: {in_key}"
+        bloom_filter = bitarray(M[key - 1])
+        bloom_filter.setall(0)
+        for index in list_of_indexes:
+            bloom_filter[index] = True
+        return bloom_filter
+
+    #return ratings.map(map).groupByKey().map(reduce).collect() <- not working - keeps failing
+    return ratings.map(map).reduceByKey(combine).map(reduce).collect()
+
 
 
 def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
@@ -293,6 +328,7 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
     pass
 
 JOB_2_BASE = "base"
+JOB_2_EMIT_INDEXES = "emit_indexes"
 JOB_2_GROUP_BY_KEY = "group_by_key"
 JOB_2_AGGREGATE_BY_KEY = "aggregate_by_key"
 
@@ -300,6 +336,7 @@ JOB_2_DEFAULT = JOB_2_AGGREGATE_BY_KEY
 
 JOB_2_TYPES = {
     JOB_2_BASE              : job2_base, 
+    JOB_2_EMIT_INDEXES      : job2_emit_indexes,
     JOB_2_AGGREGATE_BY_KEY  : job2_aggregateByKey, 
     JOB_2_GROUP_BY_KEY      : job2_groupByKey
     }
