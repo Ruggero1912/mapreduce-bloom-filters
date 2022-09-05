@@ -43,10 +43,10 @@ public class BloomFilterUtility {
         catch (Exception e) { e.printStackTrace(); }
     }
 
+    /*
     public static double getP(int n, int dataset_size){
-        double p = 0.00001;
+        double p = 0.001;
 
-        /*
         float perc=((float)n/dataset_size)*100;
         if(perc<=10){
             p=0.1;
@@ -56,9 +56,9 @@ public class BloomFilterUtility {
         }
         else {
             p=0.001;
-        }*/
+        }
         return p;
-    }
+    }*/
 
     public static int getSize(int n, double p){
         return (int) (-(n * Math.log(p)) / Math.pow((Math.log(2)), 2));
@@ -119,17 +119,16 @@ public class BloomFilterUtility {
 
     }
 
-    public static void setConfigurationParams(Job job) {
+    public static void setConfigurationParams(Job job, double p) {
         // Setting configuration parameters for job2
         int m, k, i = 0;
-        double p;
         for (int size : sizes) {
             if (size != 0) {
-                p = BloomFilterUtility.getP(size, datasetSize);
+                //p = BloomFilterUtility.getP(size, datasetSize);
                 m = BloomFilterUtility.getSize(size, p);
                 k = BloomFilterUtility.getNumberHashFunct(m, size);
 
-                System.out.println( (i+1) + " | m=" + m + ", k=" + k + ", p=" + p + ", n=" + size);
+                System.out.println( (i+1) + " | m=" + m + ", k=" + k + ", n=" + size);
 
                 // Passing parameters to the mapper for each filter
                 job.getConfiguration().setInt("bf." + (i) + ".parameter.m", m);

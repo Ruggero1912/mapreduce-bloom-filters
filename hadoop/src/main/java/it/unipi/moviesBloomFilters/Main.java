@@ -29,15 +29,16 @@ public class Main {
 
         Configuration conf = new Configuration();
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-        if (otherArgs.length != 4) {
-            System.err.println("Usage: <input file> <output> <lines per mapper> <version>");
+        if (otherArgs.length != 5) {
+            System.err.println("Usage: <input file> <output> <lines per mapper> <false positive rate> <version>");
             System.exit(1);
         }
 
         System.out.println("<input> = " + otherArgs[0]);
         System.out.println("<output> = " + otherArgs[1]);
         System.out.println("<lines per mapper> = " + otherArgs[2]);
-        System.out.println("<version> = " + Integer.parseInt(otherArgs[3]));
+        System.out.println("<false positive rate> = " + Double.parseDouble(otherArgs[3]));
+        System.out.println("<version> = " + Integer.parseInt(otherArgs[4]));
 
         N_LINES = Integer.parseInt(args[2]);
 
@@ -102,7 +103,7 @@ public class Main {
         job2.setJarByClass(Main.class);
 
         // Set mapper/reducer
-        int version = Integer.parseInt(args[3]);
+        int version = Integer.parseInt(args[4]);
         if (version == 1) {
             System.out.println("VERSION 1 - IN-MAPPER COMBINER");
             job2.setMapperClass(BloomFilterGenerationInMapperCombiner.class);
@@ -149,7 +150,7 @@ public class Main {
 
         Path pt = new Path(namenodePath + args[1] + "/");
         BloomFilterUtility.getDatasetSize(pt);
-        BloomFilterUtility.setConfigurationParams(job2);
+        BloomFilterUtility.setConfigurationParams(job2, Double.parseDouble(args[3]));
 
         Boolean countSuccess2 = job2.waitForCompletion(true);
         if(!countSuccess2) {
