@@ -27,17 +27,23 @@ def blue(string):
 def green(string):
     return GREEN_COLOR + string + DEFAULT_COLOR
 
+
+P_KIND = "fixed" # "ranges"
+P_FIXED = 0.000001
+
 #this dict must be sorted in ascending order
 P_RANGES = {
-    2  : 0.0001,
-    15 : 0.0001,
-    100: 0.0001,
+    2  : P_FIXED,
+    15 : P_FIXED,
+    100: P_FIXED,
 }
 
 def getP(n, total_number) -> float:
     """
     returns the false positive rate according to the percentage of occurencies of the current score over the total
     """
+    if P_KIND == "fixed":
+        return P_FIXED
     perc = ( n / total_number ) * 100
     for range_limit, p_value in P_RANGES.items():
         if perc <= range_limit:
@@ -57,7 +63,7 @@ def getM(n, p) -> int:
 def getK(m, n) -> int:
     return int((m/n) * math.log(2))
 
-def getHash (movie_id, m, i):
+def get_hash_index(movie_id, m, i) -> int:
     #tmp = [f'{string.hexdigits[(char >> 4) & 0xf]}{string.hexdigits[char & 0xf]}' for char in mmh3.hash_bytes(movie_id, i)]
     #return abs(int(''.join(tmp), base=16)) % m
 
@@ -69,12 +75,12 @@ def initializeBloomFilter(movie_id, m, k) -> bitarray:
     bs = bitarray(m)
     bs.setall(0)
     for i in range(k):
-        bs[ getHash(movie_id, m, i) ] = True
+        bs[ get_hash_index(movie_id, m, i) ] = True
     return bs
 
 def addToFilter(bloom_filter, movie_id, m, k) -> bitarray:
     for i in range(k):
-        bloom_filter[ getHash(movie_id, m, i) ] = True
+        bloom_filter[ get_hash_index(movie_id, m, i) ] = True
     return bloom_filter
 
 def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
@@ -85,7 +91,7 @@ def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
     #if( bloom_filter.__len__() == 0):
     #    return False
     for i in range(k):
-        if bloom_filter[ getHash(movie_id, m, i) ] == False:
+        if bloom_filter[ get_hash_index(movie_id, m, i) ] == False:
             return False
     return True
 
@@ -348,8 +354,8 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         P[k - 1] = getP(n, total_number)
         M[k - 1] = getM(n, P[k - 1 ])
         K[k - 1] = getK(M[k - 1], n)
-
-    print(green(f"job1 finished - elapsed time: {round(end_time - start_time, 3)} seconds - total number of rows: {total_number} | N for each rating level: {N.items()}"))
+    job1_time_seconds = round(end_time - start_time, 3)
+    print(green(f"job1 finished - elapsed time: {job1_time_seconds} seconds - total number of rows: {total_number} | N for each rating level: {N.items()}"))
 
     print(f"calculated values for \nP: {P}\n\nM: {M}\n\nK: {K}\n\n")
     start_time = time.time()
@@ -364,7 +370,8 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         tmp = job2(ratings, M, K)
 
     end_time = time.time()
-    print(green(f"job2 finished - elapsed time: {round(end_time - start_time, 3)} seconds"))
+    job2_time_seconds = round(end_time - start_time, 3)
+    print(green(f"job2 finished - elapsed time: {job2_time_seconds} seconds"))
     if verbose:
         print(f"\nresults: \n{tmp}")
     bloom_filters = [None] * 10
@@ -379,7 +386,8 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     print(f"results type: {type(results)} | Content: {results}")
     scores_list = results
     end_time = time.time()
-    print(green(f"job3 finished - elapsed time: {round(end_time - start_time, 3)} seconds"))
+    job3_time_seconds = round(end_time - start_time, 3)
+    print(green(f"job3 finished - elapsed time: {job3_time_seconds} seconds"))
     print(blue("rating | < FP - FN - TP - TN >"))
     for index, el in enumerate(scores_list):
         if index % 4 == 0:
@@ -402,6 +410,11 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
 
     print(red("Shutting down Spark... "))
     sc.stop()
+
+    print(green(f"P value: {P_FIXED} - P ranges: {P_RANGES} - P array: {P}"))
+    print(blue(f"job1 time: {job1_time_seconds} seconds"))
+    print(blue(f"job2 time: {job2_time_seconds} seconds"))
+    print(blue(f"job3 time: {job3_time_seconds} seconds"))
 
 
 import sys, os
