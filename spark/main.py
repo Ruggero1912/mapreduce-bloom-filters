@@ -477,39 +477,55 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         df.to_csv(CSV_FILE_NAME)
 
 
-def iterate_tests():
+def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTORS_NUMS_TESTING=False):
     """
     basic testing function used to iterate over Spark executions in order 
     to obtain performance results of different combinations of parameters
     """
-    for p_value in [0.0000001, 0.00000001]:   # , 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.000001
+    global TOTAL_NUM_EXECUTORS
+    global TOTAL_CORES_PER_EXECUTOR
+
+    if specified_job2_type is None:
+        JOB2_TYPES_ITER = JOB_2_TYPES
+    else:
+        JOB2_TYPES_ITER = [specified_job2_type]
+
+    for p_value in [0.0000001]:   # , 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.000001
         global P_FIXED
         P_FIXED = p_value
-        for job2_kind in JOB_2_TYPES:
+        for job2_kind in JOB2_TYPES_ITER:
             if job2_kind == JOB_2_EMIT_INDEXES:
+                #gives problems with low values of p
                 continue
-            print(blue(f"Going to start new iteration with P={P_FIXED} and job2kind={job2_kind}"))
-            main("data.tsv", False, job2_kind, 0, STORE_RESULTS=True)
+            if EXECUTORS_NUMS_TESTING:
+                for num_executors in [2]:
+                    TOTAL_NUM_EXECUTORS = num_executors
+                    for num_cores in [1,2,3,4]:
+                        TOTAL_CORES_PER_EXECUTOR = num_cores
+                        print(blue(f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={TOTAL_CORES_PER_EXECUTOR}"))
+                        main(input_file_name, False, job2_kind, 0, STORE_RESULTS=True)
+            else:
+                print(blue(
+                    f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={TOTAL_CORES_PER_EXECUTOR}"))
+                main(input_file_name, False, job2_kind, 0, STORE_RESULTS=True)
 
 import sys, os
 
 if __name__ == "__main__":
-
-    if "--iterative-tests" in sys.argv:
-        print(red( "Going to iterate over tests... Ignoring the other parameters... This will take time") )
-        iterate_tests()
-        exit(0)
     
     print("usage: main.py <input file path> <opt:job_2_type:str> <opt:verbose:bool> <opt:wait x seconds before closing:int> <opt:--iterative-tests>")
 
 
     input_file_name = "data.tsv"
-    if sys.argv[1]:
+    if len(sys.argv) > 1 and sys.argv[1]:
         input_file_name = sys.argv[1]
+    else:
+        print(red(f"Going to use default input file path : '{input_file_name}'"))
     
     verbose = False
     wait_to_close = 0
     job2_type = JOB_2_DEFAULT
+    job2_type_specified = None
 
     if len(sys.argv) > 2:
         job2_type = sys.argv[2]
@@ -518,12 +534,25 @@ if __name__ == "__main__":
             print(f"the specified job2 type '{job2_type}' was not recognised")
             print("allowed options: ", JOB_2_TYPES.keys())
             exit(0)
+        job2_type_specified = job2_type
+    else:
+        print(blue(f"Using default job 2 type: {job2_type}"))
 
     if len(sys.argv) > 3:
         verbose = not ( str.lower(sys.argv[3]) in ["0", "false", ""] )
 
+    if verbose:
+        print(blue("Going to run in verbose mode..."))
+
     if len(sys.argv) > 4 and sys.argv[4]:
         wait_to_close = int(sys.argv[4])
+        print(red(f"I will wait for {wait_to_close} seconds before closing Spark context"))
+
+    if "--iterative-tests" in sys.argv:
+        #print(red(f"DEBUG: content of sys.argv: {sys.argv} \t\ttype: {type(sys.argv)}"))
+        print(red("Going to iterate over tests... Ignoring the other parameters... This will take time"))
+        iterate_tests(input_file_name, specified_job2_type=job2_type_specified)
+        exit(0)
 
     main(input_file_path=input_file_name, verbose=verbose,
          job2_type=job2_type, wait_to_close=wait_to_close)
