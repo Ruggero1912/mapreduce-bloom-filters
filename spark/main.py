@@ -142,36 +142,6 @@ def job2_base(ratings : RDD, M : list, K : list) -> list:
 
     return ratings.map(map).reduceByKey(reduce).collect()
 
-def job2_emit_indexes(ratings : RDD, M : list, K : list) -> list:
-    """
-    map reduce approach 
-    introduces overhead for the transmission of the indexes set to true for each movie
-    """
-    def map(tup: tuple) -> tuple:
-        (in_key, movie_id) = tup
-        key = int(in_key)
-        assert(key >= 1 and key <= 10), f"the input key is not in range(1,10) | input value: {in_key}"
-        return (key, getIndexesTrueFor(movie_id, M[key - 1], K[key - 1]))
-
-    def combine(indexes_list1 : list, indexes_list2 : list) -> list:
-        return indexes_list1 + indexes_list2 # returns list with duplicates (potentially)
-        #return list(set(indexes_list1 + indexes_list2)) # avoid duplicates! but seems too performance impacting
-
-    def reduce(tup : tuple) -> bitarray:
-        (in_key, list_of_indexes) = tup
-        key = int(in_key)
-        assert(key >= 1 and key <= 10), f"the input key is not in range(1,10) | input value: {in_key}"
-        bloom_filter = bitarray(M[key - 1])
-        bloom_filter.setall(0)
-        for index in list_of_indexes:
-            bloom_filter[index] = True
-        return bloom_filter
-
-    #return ratings.map(map).groupByKey().map(reduce).collect() <- not working - keeps failing
-    return ratings.map(map).reduceByKey(combine).map(reduce).collect()
-
-
-
 def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
     """
     alternative implementation of the bloom filters generation in Spark for performance comparison
@@ -290,7 +260,6 @@ def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
     pass
 
 JOB_2_BASE = "base"
-JOB_2_EMIT_INDEXES = "emit_indexes"
 JOB_2_GROUP_BY_KEY = "group_by_key"
 JOB_2_AGGREGATE_BY_KEY = "aggregate_by_key"
 
@@ -298,7 +267,6 @@ JOB_2_DEFAULT = JOB_2_AGGREGATE_BY_KEY
 
 JOB_2_TYPES = {
     JOB_2_BASE              : job2_base, 
-    JOB_2_EMIT_INDEXES      : job2_emit_indexes,
     JOB_2_AGGREGATE_BY_KEY  : job2_aggregateByKey, 
     JOB_2_GROUP_BY_KEY      : job2_groupByKey
     }
@@ -458,9 +426,6 @@ def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTOR
         global P_FIXED
         P_FIXED = p_value
         for job2_kind in JOB2_TYPES_ITER:
-            if job2_kind == JOB_2_EMIT_INDEXES:
-                #gives problems with low values of p
-                continue
             if EXECUTORS_NUMS_TESTING:
                 for num_executors in [16]:
                     Utils.set_num_executors(num_executors)
