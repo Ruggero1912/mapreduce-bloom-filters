@@ -57,7 +57,7 @@ def green(string):
 
 
 P_KIND = "fixed" # "ranges"
-P_FIXED = 0.000001
+P_FIXED = 0.0001
 
 #this dict must be sorted in ascending order
 P_RANGES = {
@@ -286,7 +286,7 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
     (5, 'tt0000006')
     """
 
-def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
+def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
     """
     bitsets is a list, at the index (rating - 1) we have the bloom filter for the rating rating
 
@@ -302,16 +302,17 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
     def seqOp(scores : list, row) -> list:
         positive_results_counter = 0
         valid = False
+        key, movie_id = row
         for index, bloom_filter in enumerate(bitsets):
-            if checkInFilter(bloom_filter, row[1][1], M[index], K[index]):
+            if checkInFilter(bloom_filter, movie_id, M[index], K[index]):
                 positive_results_counter += 1
-                if index == (row[1][0] - 1):    #case True Positive
+                if index == (key - 1):    #case True Positive
                     scores[ ( index ) * 4 + TP_OFFSET] += 1
                     valid = True
                 else:                           #case False Positive
                     scores[ (index) * 4 + FP_OFFSET] += 1
             else:
-                if index == (row[1][0] - 1):    #case False Negative
+                if index == (key - 1):    #case False Negative
                     scores[ ( index ) * 4 + FN_OFFSET] += 1
                 else:                           #case True Negative
                     scores[( index ) * 4 + TN_OFFSET] += 1
@@ -324,19 +325,13 @@ def job3(ratingsKKV : RDD, bitsets : list, M : list, K : list) -> list:
             #pass
         scores[EVALUATED_COUNTER_INDEX] += 1
         return scores
-    """
-    def combOp(scores1 : list, scores2 : list) -> list:
-        assert len(scores1) == len(scores2)
-        for i in range(len(scores1)):
-            scores1[i] += scores2[i]
-        return scores1
-    """
+
     def combOp(scores1: list, scores2: list) -> list:
 
-        assert len(scores1) == len(scores2) == 42 , f"LANDRY len: {len(scores1)} | content scores1: {scores1}"
+        assert len(scores1) == len(scores2) == 42 , f"[!] ERROR len: {len(scores1)} | content scores1: {scores1}"
         return [sum(x) for x in zip(scores1, scores2)]
 
-    return ratingsKKV.aggregate(zeroValue=( [0] * 42), seqOp=seqOp, combOp=combOp)
+    return ratings.aggregate(zeroValue=( [0] * 42), seqOp=seqOp, combOp=combOp)
 
     """
     scores = [
@@ -447,7 +442,8 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         print(f"\nreordered: {bloom_filters}")
 
     start_time = time.time()
-    results = job3(ratingsKKV, bloom_filters, M, K)
+    #results = job3(ratingsKKV, bloom_filters, M, K)
+    results = job3(ratings, bloom_filters, M, K)
     print(f"results type: {type(results)} | Content: {results}")
     scores_list = results
     end_time = time.time()
