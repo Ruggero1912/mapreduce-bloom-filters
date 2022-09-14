@@ -5,9 +5,34 @@ from bitarray import bitarray
 import mmh3
 import pandas as pd
 
-MASTER_NODE_IP = "172.16.4.188"
-TOTAL_NUM_EXECUTORS = 12
-TOTAL_CORES_PER_EXECUTOR = 4
+#MASTER_NODE_IP = "172.16.4.188"
+#TOTAL_NUM_EXECUTORS = 12
+#TOTAL_CORES_PER_EXECUTOR = 4
+
+class Utils:
+
+    TOTAL_NUM_EXECUTORS = 4
+    TOTAL_CORES_PER_EXECUTOR = 4
+
+    def set_num_executors(how_many : int):
+        if how_many <= 0 :
+            print(f"ERROR: the specified num executor {how_many} is not valid! keeping {Utils.TOTAL_NUM_EXECUTORS}")
+            return
+        #global TOTAL_NUM_EXECUTORS
+        Utils.TOTAL_NUM_EXECUTORS = how_many
+
+    def set_cores_per_executor(how_many : int):
+        if how_many <= 0:
+            print(f"ERROR: the specified num executor {how_many} is not valid! keeping {Utils.TOTAL_CORES_PER_EXECUTOR}")
+            return
+        if how_many > 4:
+            print(f"[!] WARNING: the executors of the cluster have 4 cores, cannot set more than 4! | specified {how_many}")
+            return
+        #global TOTAL_CORES_PER_EXECUTOR
+        Utils.TOTAL_CORES_PER_EXECUTOR = how_many
+
+    def get_num_partitions() -> int:
+        return Utils.TOTAL_NUM_EXECUTORS * Utils.TOTAL_CORES_PER_EXECUTOR
 
 CSV_FILE_NAME = "spark_results.csv"
 
@@ -360,8 +385,8 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     master_type = "yarn"   # "local" "yarn"
     conf = SparkConf().setMaster(master_type)\
             .setAppName(f"MRBF|deploy-{master_type}-|job2type-{job2_type}-|verbose-{verbose}-|P-{P_RANGES}")\
-            .set("spark.executor.instances",    str(TOTAL_NUM_EXECUTORS)        )\
-            .set("spark.executor.cores",        str(TOTAL_CORES_PER_EXECUTOR)   )  # number of cores on each executor
+            .set("spark.executor.instances",    str(Utils.TOTAL_NUM_EXECUTORS)        )\
+            .set("spark.executor.cores",        str(Utils.TOTAL_CORES_PER_EXECUTOR)   )  # number of cores on each executor
     sc = SparkContext(conf=conf)
 
     lines = sc.textFile(input_file_path)    #automatically splits the file on '\n'
@@ -373,7 +398,7 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     #ratings = lines.map(lambda row : (round( row.split('\t')[1] ), row.split('\t')[0]))
     print(blue(f"\n\n\tthe input dataset was originally split in {ratings.getNumPartitions()} \n\n"))
 
-    ratings = ratings.repartition(TOTAL_NUM_EXECUTORS)
+    ratings = ratings.repartition( Utils.get_num_partitions() )
 
     print(blue(f"\n\n\tnow the input dataset is split in {ratings.getNumPartitions()} \n\n"))
     #now each row is in the form (roundedRating, filmID)    i.e. : (6, 'tt0000001')
@@ -464,13 +489,14 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         row = {
             "P_value" : P_FIXED,
             "job2 kind" : job2_type,
-            "num_executors" : TOTAL_NUM_EXECUTORS,
-            "num_cores_per_executor": TOTAL_CORES_PER_EXECUTOR,
+            "num_executors" : Utils.TOTAL_NUM_EXECUTORS,
+            "num_cores_per_executor": Utils.TOTAL_CORES_PER_EXECUTOR,
             "job1_time" : job1_time_seconds,
             "job2_time" : job2_time_seconds,
             "job3_time" : job3_time_seconds,
             "multipositive_rate": scores_list[MULTI_POSITIVE_COUNTER_INDEX] / scores_list[EVALUATED_COUNTER_INDEX],
             "multipositive_counter": scores_list[MULTI_POSITIVE_COUNTER_INDEX],
+            "RDD_partitions" : Utils.get_num_partitions()
         }
         df = df.append(row, ignore_index=True)
         #df.sort_values(by=keys, axis=1)
@@ -482,13 +508,14 @@ def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTOR
     basic testing function used to iterate over Spark executions in order 
     to obtain performance results of different combinations of parameters
     """
-    global TOTAL_NUM_EXECUTORS
-    global TOTAL_CORES_PER_EXECUTOR
 
     if specified_job2_type is None:
         JOB2_TYPES_ITER = JOB_2_TYPES
     else:
         JOB2_TYPES_ITER = [specified_job2_type]
+
+    if EXECUTORS_NUMS_TESTING:
+        print(blue(f"Going to iterate over different combinations of executor nums and cores per executors num..."))
 
     for p_value in [0.0000001]:   # , 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.000001
         global P_FIXED
@@ -498,15 +525,15 @@ def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTOR
                 #gives problems with low values of p
                 continue
             if EXECUTORS_NUMS_TESTING:
-                for num_executors in [2]:
-                    TOTAL_NUM_EXECUTORS = num_executors
+                for num_executors in [16]:
+                    Utils.set_num_executors(num_executors)
                     for num_cores in [1,2,3,4]:
-                        TOTAL_CORES_PER_EXECUTOR = num_cores
-                        print(blue(f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={TOTAL_CORES_PER_EXECUTOR}"))
+                        Utils.set_cores_per_executor(num_cores)
+                        print(blue(f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={Utils.TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={Utils.TOTAL_CORES_PER_EXECUTOR}"))
                         main(input_file_name, False, job2_kind, 0, STORE_RESULTS=True)
             else:
                 print(blue(
-                    f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={TOTAL_CORES_PER_EXECUTOR}"))
+                    f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={Utils.TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={Utils.TOTAL_CORES_PER_EXECUTOR} | how many partitions: {Utils.get_num_partitions()}"))
                 main(input_file_name, False, job2_kind, 0, STORE_RESULTS=True)
 
 import sys, os
