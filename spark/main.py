@@ -5,10 +5,6 @@ from bitarray import bitarray
 import mmh3
 import pandas as pd
 
-#MASTER_NODE_IP = "172.16.4.188"
-#TOTAL_NUM_EXECUTORS = 12
-#TOTAL_CORES_PER_EXECUTOR = 4
-
 class Utils:
 
     TOTAL_NUM_EXECUTORS = 4
@@ -18,7 +14,6 @@ class Utils:
         if how_many <= 0 :
             print(f"ERROR: the specified num executor {how_many} is not valid! keeping {Utils.TOTAL_NUM_EXECUTORS}")
             return
-        #global TOTAL_NUM_EXECUTORS
         Utils.TOTAL_NUM_EXECUTORS = how_many
 
     def set_cores_per_executor(how_many : int):
@@ -28,7 +23,6 @@ class Utils:
         if how_many > 4:
             print(f"[!] WARNING: the executors of the cluster have 4 cores, cannot set more than 4! | specified {how_many}")
             return
-        #global TOTAL_CORES_PER_EXECUTOR
         Utils.TOTAL_CORES_PER_EXECUTOR = how_many
 
     def get_num_partitions() -> int:
@@ -57,7 +51,7 @@ def green(string):
 
 
 P_KIND = "fixed" # "ranges"
-P_FIXED = 0.0001
+P_FIXED = 0.0000001
 
 #this dict must be sorted in ascending order
 P_RANGES = {
@@ -121,9 +115,6 @@ def checkInFilter(bloom_filter, movie_id, m, k) -> bool:
     assert type(movie_id) == str, f"the type of the given movieid is {type(movie_id)} content: {movie_id}"
     if(not bloom_filter or bloom_filter is None):
         return False
-    #assert isinstance(bloom_filter, bitarray) , f"the type of bloom filter is not array"
-    #if( bloom_filter.__len__() == 0):
-    #    return False
     for i in range(k):
         if bloom_filter[ get_hash_index(movie_id, m, i) ] == False:
             return False
@@ -210,10 +201,9 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
     - input list K: the number of hash function to apply to each tested value
     - returns a bloom filter for each rating level
     """
-    #now each rating is in the form (roundedRating, filmID)    i.e. : (6, 'tt0000001')
-    
-    def seqFunc(bs : bitarray, row2 : tuple) -> bitarray:
         
+    def seqFunc(bs : bitarray, row2 : tuple) -> bitarray:
+        #each rating is in the form (roundedRating, filmID)    i.e. : (6, 'tt0000001')
         key = row2[0]
 
         if( not bs ): # zeroValue case , here it is not set the length of the bitset
@@ -228,63 +218,11 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
         return bitset1.__or__(bitset2)
 
     
-    # (roundedRating, (roundedRating, filmID ) )    i.e. : (6, (6, 'tt0000001') )
+    # ratingsKKV is in the form <roundedRating, (roundedRating, filmID ) >    i.e. : <6, (6, 'tt0000001') >
     bitsets = ratingsKKV.aggregateByKey(zeroValue=bitarray(), seqFunc=seqFunc, combFunc=combFunc)
 
     return bitsets.collect()
     
-    """
-    Aggregate the values of each key, using given combine functions and a neutral "zero value". This function can return a different result type, U, than the type of the values in this RDD, V. Thus, we need one operation for merging a V into a U and one operation for merging two U's, The former operation is used for merging values within a partition, and the latter is used for merging values between partitions. To avoid memory allocation, both of these functions are allowed to modify and return their first argument instead of creating a new U.
-
-    V è una tupla del RDD iniziale
-    U è una tupla in uscita da seqFunc
-
-    zeroValue deve essere di tipo U
-
-    seqFunc(U, V)
-
-    combFunc(U, U)
-
-
-    1 -> (49, gifusuhg)
-    2 -> (45, 52sgdfgs)
-
-    seqfunc( bitset vuoto,  1)          -> bitset_A
-
-    seqFunc(bitset_A,       2)          -> bitset_B
-    """
-
-    """
-    (6, 'tt0000001')        (6, 'tt0000001')
-    (6, 'tt0000041')        (6, 'tt0000002')    ->  (6, ['tt0000001', 'tt0000002']) -> (6, bitset(00101))   OR  
-                                                                                                               \
-                                                                                                                --> (6, bitset(01101))
-    (6, 'tt0000061')        (6, 'tt0000003')                                                                   /
-    (6, 'tt0000023')    ->  (6, 'tt0000004')    ->  (6, ['tt0000003', 'tt0000004']) -> (6, bitset(01001))   OR    
-
-    (6, 'tt0000124')        (5, 'tt0000005')
-    (3, 'tt0000121')        (5, 'tt0000006')    ->  (5, ['tt0000005', 'tt0000006'])
-    [...]
-
-    (5, 'tt0000005')
-    (5, 'tt0000006')
-    """
-
-    """
-    (6, 'tt0000001')        (6, 'tt0000001')
-    (6, 'tt0000041')        (6, 'tt0000002')    ->  COMBINE  ->  (6, [bitset(00001), bitset(00100)]) -> REDUCE -> (6, bitset(00101))   OR  
-                                                                                                                                        \
-                                                                                                                                         --> (6, bitset(01101))
-    (6, 'tt0000061')        (6, 'tt0000003')                                                                                            /
-    (6, 'tt0000023')    ->  (6, 'tt0000004')    ->  COMBINE  ->  (6, [bitset(00001), bitset(01000)]) -> REDUCE -> (6, bitset(01001))   OR    
-
-    (6, 'tt0000124')        (5, 'tt0000005')
-    (3, 'tt0000121')        (5, 'tt0000006')    ->  COMBINE  ->  (5, ['tt0000005', 'tt0000006'])
-    [...]
-
-    (5, 'tt0000005')
-    (5, 'tt0000006')
-    """
 
 def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
     """
@@ -342,8 +280,9 @@ def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
     index40:    multiple_positive_results,
     index41:    evaluated_counter
     ]
+    example:
     rating = 3
-    caso FP:
+    case FP:
     FP_displacement = 0
         zv = [ ( rating - 1 ) * 4 + FP_displacement ]
 
@@ -442,7 +381,6 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         print(f"\nreordered: {bloom_filters}")
 
     start_time = time.time()
-    #results = job3(ratingsKKV, bloom_filters, M, K)
     results = job3(ratings, bloom_filters, M, K)
     print(f"results type: {type(results)} | Content: {results}")
     scores_list = results
@@ -503,6 +441,9 @@ def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTOR
     """
     basic testing function used to iterate over Spark executions in order 
     to obtain performance results of different combinations of parameters
+    - EXECUTORS_NUMS_TESTING should be set manually
+    - the ranges of P_value should be set manually
+    - the ranges of num_executors and cores_per_executor should be set manually
     """
 
     if specified_job2_type is None:
