@@ -1,4 +1,4 @@
-from pyspark import SparkConf, SparkContext, RDD
+from pyspark import SparkConf, SparkContext, RDD, Broadcast
 import time
 import math
 from bitarray import bitarray
@@ -26,6 +26,7 @@ class Utils:
         Utils.TOTAL_CORES_PER_EXECUTOR = how_many
 
     def get_num_partitions() -> int:
+        #return 1
         return Utils.TOTAL_NUM_EXECUTORS * Utils.TOTAL_CORES_PER_EXECUTOR
 
 CSV_FILE_NAME = "spark_results.csv"
@@ -51,7 +52,7 @@ def green(string):
 
 
 P_KIND = "fixed" # "ranges"
-P_FIXED = 0.0000001
+P_FIXED = 0.0001
 
 #this dict must be sorted in ascending order
 P_RANGES = {
@@ -127,7 +128,7 @@ def job1(ratings : RDD) -> dict:
     """
     return ratings.countByKey()
 
-def job2_base(ratings : RDD, M : list, K : list) -> list:
+def job2_base(ratings : RDD, M : Broadcast, K : Broadcast) -> list:
     """
     classic map reduce approach which introduces a lot of overhead for the transmission of the bloom filters between each step
     """
@@ -135,14 +136,14 @@ def job2_base(ratings : RDD, M : list, K : list) -> list:
         (in_key, movie_id) = tup
         key = int(in_key)
         assert( key >= 1 and key <= 10) , f"the input key is not in range(1,10) | input value: {in_key}"
-        return ( key, initializeBloomFilter(movie_id, M[key - 1], K[key - 1]) )
+        return ( key, initializeBloomFilter(movie_id, M.value[key - 1], K.value[key - 1]) )
 
     def reduce(bf1 : bitarray, bf2 : bitarray) -> bitarray:
         return bf1.__or__(bf2)
 
     return ratings.map(map).reduceByKey(reduce).collect()
 
-def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
+def job2_groupByKey(ratings : RDD, M : Broadcast, K : Broadcast) -> list:
     """
     alternative implementation of the bloom filters generation in Spark for performance comparison
     it exploits RDD method groupByKey() that tends to be inefficient on keys with high numerosity, since
@@ -157,19 +158,19 @@ def job2_groupByKey(ratings : RDD, M : list, K : list) -> list:
         in_key, list_of_movies = tuple
         key = int(in_key)
         assert (key >= 1 and key <= 10 ) , f"the input key is not in range(1,10) | input value: {in_key}"
-        bs = bitarray(M[key - 1])
+        bs = bitarray(M.value[key - 1])
         bs.setall(0)
         for movie_id in list_of_movies:
-            bs = addToFilter(bs, movie_id, M[key - 1], K[key - 1])
+            bs = addToFilter(bs, movie_id, M.value[key - 1], K.value[key - 1])
         return (key, bs)
     return ratings.groupByKey().map(fun).collect()
 
-def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
+def job2_aggregateByKey(ratingsKKV: RDD, M : Broadcast, K : Broadcast) -> list:
     """
     creates and sets the bits of a bloom filter for each rating level
-    - input list M: the number of bits for each bloom filter
-    - input list K: the number of hash function to apply to each tested value
-    - returns a bloom filter for each rating level
+    - input pyspark.Broadcast M: the number of bits for each bloom filter
+    - input pyspark.Broadcast K: the number of hash function to apply to each tested value
+    - returns a Bloom filter for each rating level
     """
         
     def seqFunc(bs : bitarray, row2 : tuple) -> bitarray:
@@ -177,8 +178,8 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
         key = row2[0]
 
         if( not bs ): # zeroValue case , here it is not set the length of the bitset
-            return initializeBloomFilter(row2[1], M[key - 1], K[key - 1])
-        return addToFilter(bs, row2[1], M[key - 1], K[key - 1])
+            return initializeBloomFilter(row2[1], M.value[key - 1], K.value[key - 1])
+        return addToFilter(bs, row2[1], M.value[key - 1], K.value[key - 1])
 
     def combFunc(bitset1 : bitarray, bitset2 : bitarray) -> bitarray:
         assert bitset1.__len__() == bitset2.__len__() , f"different bitsets length! bitset1 len: { bitset1.__len__()} bitset2 len: {bitset2.__len__()}"
@@ -195,9 +196,9 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
     return bitsets.collect()
     
 
-def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
+def job3(ratings : RDD, bitsets : Broadcast, M : Broadcast, K : Broadcast) -> list:
     """
-    bitsets is a list, at the index (rating - 1) we have the bloom filter for the rating rating
+    bitsets is a Spark Broadcast variable in which at the index (rating - 1) we have the bloom filter for the rating rating
 
     < FP - FN - TP - TN >
     """
@@ -212,8 +213,8 @@ def job3(ratings : RDD, bitsets : list, M : list, K : list) -> list:
         positive_results_counter = 0
         valid = False
         key, movie_id = row
-        for index, bloom_filter in enumerate(bitsets):
-            if checkInFilter(bloom_filter, movie_id, M[index], K[index]):
+        for index, bloom_filter in enumerate(bitsets.value):
+            if checkInFilter(bloom_filter, movie_id, M.value[index], K.value[index]):
                 positive_results_counter += 1
                 if index == (key - 1):    #case True Positive
                     scores[ ( index ) * 4 + TP_OFFSET] += 1
@@ -325,6 +326,9 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     job1_time_seconds = round(end_time - start_time, 3)
     print(green(f"job1 finished - elapsed time: {job1_time_seconds} seconds - total number of rows: {total_number} | N for each rating level: {N.items()}"))
 
+    M_broadcast = sc.broadcast(M)
+    K_broadcast = sc.broadcast(K)
+
     print(f"calculated values for \nP: {P}\n\nM: {M}\n\nK: {K}\n\n")
     start_time = time.time()
     ratingsKKV = ratings.map(lambda x: (x[0], (x[0], x[1])))
@@ -333,9 +337,9 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
 
     print(f"Going to start job2 execution... Specified kind: ", job2_type)
     if job2_type == JOB_2_AGGREGATE_BY_KEY:
-        tmp = job2(ratingsKKV, M, K)
+        tmp = job2(ratingsKKV, M_broadcast, K_broadcast)
     else:
-        tmp = job2(ratings, M, K)
+        tmp = job2(ratings, M_broadcast, K_broadcast)
 
     end_time = time.time()
     job2_time_seconds = round(end_time - start_time, 3)
@@ -349,8 +353,10 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     if verbose:
         print(f"\nreordered: {bloom_filters}")
 
+    bloom_filters_broadcast = sc.broadcast(bloom_filters)
+
     start_time = time.time()
-    results = job3(ratings, bloom_filters, M, K)
+    results = job3(ratings, bloom_filters_broadcast, M_broadcast, K_broadcast)
     print(f"results type: {type(results)} | Content: {results}")
     scores_list = results
     end_time = time.time()
@@ -415,7 +421,7 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
         df.to_csv(CSV_FILE_NAME)
 
 
-def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTORS_NUMS_TESTING=False):
+def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTORS_NUMS_TESTING=True):
     """
     basic testing function used to iterate over Spark executions in order 
     to obtain performance results of different combinations of parameters
@@ -437,11 +443,11 @@ def iterate_tests(input_file_name="data.tsv", specified_job2_type=None, EXECUTOR
         P_FIXED = p_value
         for job2_kind in JOB2_TYPES_ITER:
             if EXECUTORS_NUMS_TESTING:
-                for num_executors in [16]:
+                for num_executors in [2,4]:
                     Utils.set_num_executors(num_executors)
                     for num_cores in [1,2,3,4]:
                         Utils.set_cores_per_executor(num_cores)
-                        print(blue(f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={Utils.TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={Utils.TOTAL_CORES_PER_EXECUTOR}"))
+                        print(blue(f"Going to start new iteration with P={P_FIXED} | job2kind={job2_kind} | TOTAL_NUM_EXECUTORS={Utils.TOTAL_NUM_EXECUTORS} | TOTAL_CORES_PER_EXECUTOR={Utils.TOTAL_CORES_PER_EXECUTOR} | how many partitions: {Utils.get_num_partitions()}"))
                         main(input_file_name, False, job2_kind, 0, STORE_RESULTS=True)
             else:
                 print(blue(
