@@ -183,8 +183,9 @@ def job2_aggregateByKey(ratingsKKV: RDD, M : list, K : list) -> list:
     def combFunc(bitset1 : bitarray, bitset2 : bitarray) -> bitarray:
         assert bitset1.__len__() == bitset2.__len__() , f"different bitsets length! bitset1 len: { bitset1.__len__()} bitset2 len: {bitset2.__len__()}"
         if( not bitset1):
-            print(f"strange case happened")
             return bitset2
+        if(not bitset2):
+            return bitset1
         return bitset1.__or__(bitset2)
 
     
@@ -355,11 +356,20 @@ def main(input_file_path="data.tsv", verbose=False, job2_type=JOB_2_DEFAULT, wai
     end_time = time.time()
     job3_time_seconds = round(end_time - start_time, 3)
     print(green(f"job3 finished - elapsed time: {job3_time_seconds} seconds"))
-    print(blue("rating | < FP - FN - TP - TN >"))
+    print(blue("rating | < FP - FN - TP - TN - FPR >"))
     for index, el in enumerate(scores_list):
         if index % 4 == 0:
             print(f"\n{(index // 4) + 1} | ", end="")
         print(f" {el} ", end="")
+
+        if index % 4 == 0:
+            tmp_fp = int(el)
+        if (index - 3 ) % 4 == 0:
+            tmp_tn = int(el)
+            fpr = tmp_fp/(tmp_fp + tmp_tn)
+            #print(f" {round(fpr, 8)} ", end="") 
+            print(" {:.10f} ".format(fpr), end="")
+
         if index == 39:
             print()
             break
