@@ -1,6 +1,12 @@
 To start the execution of Spark:
 
 ``` 
+spark-submit --master yarn main.py data.tsv
+``` 
+
+For iterative tests store on csv output file:
+
+``` 
 spark-submit --master yarn main.py data.tsv aggregate_by_key false 0 --iterative-tests
 ``` 
 
