@@ -10,3 +10,9 @@ where:
 - `700000` is the number of lines of each split
 - `0.0001` is the P value
 - `1` means that Job2 should be executed with the inmapperCombiner, if `2` Mapper that emits indexes, if `3` Mapper that emits full Bloom filters
+
+
+To delete the old output files in hdfs:
+``` 
+hadoop fs -rm -R out && hadoop fs -rm -R out_2 && hadoop fs -rm -R out_3
+``` 
