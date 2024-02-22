@@ -58,7 +58,7 @@ We divided our solution in three main phases, that corresponds to three differen
 - Job 2: Bloom Filters creation,
 - Job 3: Bloom filters test.
 
-In the [full project documentation](/documentation.pdf) you will find more details and the pseudo code of the three jobs.
+> In the [full project documentation](/documentation.pdf) you will find more details and the pseudo code of the three jobs.
 
 We implemented the Bloom filters both in Hadoop and in Spark.
 
@@ -98,5 +98,82 @@ appreciate an increasing memory usage when p decreases in all implementation, wi
 significant rise in the Mapper base solution when p is particularly low.
 
 > In the [full project documentation](/documentation.pdf) you will find more details on the results and additional plots
+
+### Spark implementation
+
+In order to implement Bloom filters in Spark we adopted some tuning over the Spark instance, like RDD repartitioning and we exploited broadcast variables to facilitate the implementation of the jobs.
+
+> In the [full project documentation](/documentation.pdf) you will find more details on the optimizations done
+
+
+We propose multiple implementations of job 2, in particular:
+- solution 1: ”Classic Map Reduce” approach
+- solution 2: ”GroupByKey” approach
+- solution 3: ”AggregateByKey” approach
+
+Here it is reported the execution time of job 2 for the three different implementations at various values of `P`:
+
+![execution-time-spark-on-P-value](https://github.com/Ruggero1912/movies-Bloom-filters/assets/63967908/8bce739c-4391-488a-a8d8-6159b50178af)
+
+> In the [full project documentation](/documentation.pdf) you will find the explaination of the implementations, with its PROs and CONs.
+>
+> You will find there also more tests on different configurations for the number of executors and core per executor parameters.
+
+## Conclusions
+
+It is important to note, however, that all tests were performed using a small dataset
+(about 20Mb). This makes it difficult to appreciate the real differences between the
+various proposed implementations and how they can scale. Although, among the various solutions, we were able to identify those that performed best in terms of space and
+execution time.
+
+#### Hadoop implementations performances at fixed P
+
+We can see a big difference in terms of execution time between the
+MapReduce classic approach and the other two implementations which have approximately the same
+execution time. 
+
+This behavior seems to be obvious because the classic version
+of MapReduce will generate high intermediate data traffic (one bloom filter object per
+record). 
+
+Despite the presence of the combiner, before the data produced by the mapper
+can be locally aggregated, there will be an high number of writes. When there is not
+enough memory, **spilling to disk** may occur which significantly slows the execution of
+the job.
+
+Regarding the differences in terms of memory, a consequence of what was just said is that
+in the classic map reduce approach we will obviously need more physical memory in order
+to store a bloom filter per record, whereas the in-memory mapper combiner approach is
+the best one since each mapper instantiates 10 bloom filters per input splits, saving a lot
+of memory.
+
+> Refer to the [full project documentation](/documentation.pdf) for the analysis on performance variations varying P for the Hadoop implementation
+
+#### Spark implementation performances
+
+The classic MapReduce approach is in general slower than the others, because it creates
+a new Bloom Filter for every movieID and the huge amount of data generated from these
+operations can cause swaps from disk to the main memory slowing down the application.
+
+Considering the GroupByKey and AggregateByKey solutions, we can say that both have
+similar execution performances even if the first has a slightly lower execution time on our
+dataset.
+
+We can notice that the first one is *less scalable*, in fact in this implementation some
+executors could receive more data to process than others, but using our dataset we don’t
+notice any important decrease in performances.
+
+The second one, on the other hand, distributes better the work load among the executors,
+but it also introduce some overhead to aggregate data from different executors, in fact,
+using our dataset, it is slightly less efficient than the GroupByKey solution.
+
+> Refer to the [full project documentation](/documentation.pdf) for the analysis on performance variations of the Spark implementation with respect to the number of executors
+
+#### P values considerations
+
+![image](https://github.com/Ruggero1912/movies-Bloom-filters/assets/63967908/b103eba2-6856-4852-92cb-8300fdf97075)
+
+> Refer to the [full project documentation](/documentation.pdf) for the definition of *MultiPositive Rate*,
+> for more analysis on the results varying P and for the final choice of P value.
 
 
